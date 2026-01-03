@@ -1,9 +1,10 @@
 use super::piece::{Piece, PieceKind};
 use super::types::{PlayerConfig, PlayerId, Position};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// 盤面
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Board {
     pub width: usize,
     pub height: usize,

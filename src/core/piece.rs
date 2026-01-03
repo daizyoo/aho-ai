@@ -1,8 +1,9 @@
 use super::types::PlayerId;
+use serde::{Deserialize, Serialize};
 
 /// 駒の種類
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PieceKind {
     // 将棋駒
     S_King,   // 王/玉
@@ -64,7 +65,7 @@ pub enum MoveStep {
 }
 
 /// 駒の定義
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Piece {
     pub kind: PieceKind,
     pub owner: PlayerId,

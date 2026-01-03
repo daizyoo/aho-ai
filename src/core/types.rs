@@ -1,7 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// プレイヤーID
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PlayerId {
     Player1, // 先手 (通常)
     Player2, // 後手 (通常)
@@ -17,7 +18,7 @@ impl PlayerId {
 }
 
 /// プレイヤーの能力設定
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PlayerConfig {
     pub can_capture: bool,   // 駒を取れるか
     pub can_promote: bool,   // 成れるか
@@ -52,7 +53,7 @@ impl PlayerConfig {
 }
 
 /// 盤面座標 (0-indexed)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Position {
     pub x: usize,
     pub y: usize,

@@ -1,8 +1,10 @@
 use super::piece::PieceKind;
 use super::types::Position;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// 手の種類
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Move {
     Normal {
         from: Position,

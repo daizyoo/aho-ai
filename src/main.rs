@@ -2,6 +2,7 @@ mod core;
 mod display;
 mod game;
 mod logic;
+mod network;
 mod player;
 
 use crate::core::{setup_from_strings, PlayerId};
@@ -10,13 +11,14 @@ use crate::player::{ai::RandomAI, PlayerController, TuiController};
 use crossterm::{execute, terminal};
 use std::io;
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     // ターミナル初期化
     terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, terminal::EnterAlternateScreen)?;
 
-    let res = run();
+    let res = run().await;
 
     // ターミナル復帰
     execute!(io::stdout(), terminal::LeaveAlternateScreen)?;
@@ -25,10 +27,105 @@ fn main() -> anyhow::Result<()> {
     res
 }
 
-fn run() -> anyhow::Result<()> {
+async fn run() -> anyhow::Result<()> {
     use crossterm::event::{self, Event, KeyCode};
+    use std::time::Duration;
 
     print!("=== Unified Board Game Engine (Shogi x Chess) ===\r\n");
+
+    print!("\r\nSelect mode:\r\n");
+    print!("1. Local Play\r\n");
+    print!("2. Start Server (127.0.0.1:8080)\r\n");
+    print!("3. Connect to Server (127.0.0.1:8080)\r\n");
+
+    let mode = loop {
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('1') => break "local",
+                    KeyCode::Char('2') => break "server",
+                    KeyCode::Char('3') => break "client",
+                    KeyCode::Char('q') => return Ok(()),
+                    _ => {}
+                }
+            }
+        }
+    };
+
+    match mode {
+        "server" => {
+            crate::network::server::start_server("127.0.0.1:8080").await?;
+            return Ok(());
+        }
+        "client" => {
+            return run_client().await;
+        }
+        _ => run_local().await,
+    }
+}
+
+async fn run_client() -> anyhow::Result<()> {
+    use crate::core::{Board, Move, PlayerId};
+    use crate::game::Game;
+    use crate::network::client::NetworkClient;
+    use crate::player::network::NetworkController;
+    use std::sync::mpsc;
+
+    print!("Connecting to server...\r\n");
+    let mut client = NetworkClient::connect("127.0.0.1:8080").await?;
+    println!("Connected!");
+
+    let (player_id_tx, player_id_rx) = mpsc::channel::<PlayerId>();
+    let (board_tx, board_rx) = mpsc::channel::<Board>();
+    let (remote_move_tx, remote_move_rx) = mpsc::channel::<Move>();
+
+    // Spawn network task
+    // We need a clone of client or move it. Let's wrap client in a task.
+    // Simplifying: we'll handle the handshake first.
+
+    let mut client_handle = client;
+    tokio::spawn(async move {
+        if let Err(e) = client_handle
+            .run(player_id_tx, board_tx, remote_move_tx)
+            .await
+        {
+            eprintln!("Client networking error: {}", e);
+        }
+    });
+
+    // Wait for initial data
+    print!("Waiting for opponent...\r\n");
+    let my_id = player_id_rx.recv()?;
+    let board = board_rx.recv()?;
+
+    let mut game = Game::new(board);
+    let p1: Box<dyn PlayerController>;
+    let p2: Box<dyn PlayerController>;
+
+    if my_id == PlayerId::Player1 {
+        p1 = Box::new(TuiController::new(PlayerId::Player1, "You"));
+        p2 = Box::new(NetworkController::new(
+            PlayerId::Player2,
+            "Remote",
+            remote_move_rx,
+        ));
+    } else {
+        p1 = Box::new(NetworkController::new(
+            PlayerId::Player1,
+            "Remote",
+            remote_move_rx,
+        ));
+        p2 = Box::new(TuiController::new(PlayerId::Player2, "You"));
+    }
+
+    game.play(p1.as_ref(), p2.as_ref());
+
+    Ok(())
+}
+
+async fn run_local() -> anyhow::Result<()> {
+    use crossterm::event::{self, Event, KeyCode};
+    use std::time::Duration;
 
     print!("\r\nSelect players:\r\n");
     print!("1. Human vs Human (TUI)\r\n");
@@ -37,14 +134,16 @@ fn run() -> anyhow::Result<()> {
     print!("4. Random AI vs Random AI\r\n");
 
     let p_choice = loop {
-        if let Event::Key(key) = event::read()? {
-            match key.code {
-                KeyCode::Char('1') => break "1",
-                KeyCode::Char('2') => break "2",
-                KeyCode::Char('3') => break "3",
-                KeyCode::Char('4') => break "4",
-                KeyCode::Char('q') => return Ok(()),
-                _ => {}
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('1') => break "1",
+                    KeyCode::Char('2') => break "2",
+                    KeyCode::Char('3') => break "3",
+                    KeyCode::Char('4') => break "4",
+                    KeyCode::Char('q') => return Ok(()),
+                    _ => {}
+                }
             }
         }
     };
@@ -84,14 +183,16 @@ fn run() -> anyhow::Result<()> {
     print!("4. Chess vs Chess\r\n");
 
     let b_choice = loop {
-        if let Event::Key(key) = event::read()? {
-            match key.code {
-                KeyCode::Char('1') => break "1",
-                KeyCode::Char('2') => break "2",
-                KeyCode::Char('3') => break "3",
-                KeyCode::Char('4') => break "4",
-                KeyCode::Char('q') => return Ok(()),
-                _ => {}
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('1') => break "1",
+                    KeyCode::Char('2') => break "2",
+                    KeyCode::Char('3') => break "3",
+                    KeyCode::Char('4') => break "4",
+                    KeyCode::Char('q') => return Ok(()),
+                    _ => {}
+                }
             }
         }
     };
