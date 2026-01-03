@@ -9,10 +9,13 @@ pub struct Board {
     pub width: usize,
     pub height: usize,
     /// 駒の位置
+    #[serde(with = "crate::core::serialization")]
     pub pieces: HashMap<Position, Piece>,
     /// 持ち駒
+    #[serde(with = "crate::core::serialization")]
     pub hand: HashMap<PlayerId, HashMap<PieceKind, usize>>,
     /// プレイヤー設定
+    #[serde(with = "crate::core::serialization")]
     pub player_configs: HashMap<PlayerId, PlayerConfig>,
     pub last_move: Option<crate::core::Move>,
 }

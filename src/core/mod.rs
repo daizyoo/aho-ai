@@ -1,6 +1,7 @@
 pub mod board;
 pub mod r#move;
 pub mod piece;
+pub mod serialization;
 pub mod setup;
 pub mod types;
 
