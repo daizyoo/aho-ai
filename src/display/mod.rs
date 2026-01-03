@@ -11,6 +11,7 @@ pub struct DisplayState {
     pub hand_mode: bool,
     pub hand_index: usize,
     pub last_move: Option<crate::core::Move>,
+    pub perspective: PlayerId,
 }
 
 pub fn render_board(board: &Board, state: &DisplayState) {
@@ -34,20 +35,37 @@ pub fn render_board(board: &Board, state: &DisplayState) {
 
     // X軸ラベル
     print!("    ");
-    for x in 0..board.width {
+    for i in 0..board.width {
+        let x = if state.perspective == PlayerId::Player1 {
+            i
+        } else {
+            board.width - 1 - i
+        };
         print!("  {} ", x + 1);
     }
     print!("\r\n");
 
     print!("   +{}+\r\n", "----".repeat(board.width));
 
-    for y in 0..board.height {
+    for i in 0..board.height {
+        let y = if state.perspective == PlayerId::Player1 {
+            i
+        } else {
+            board.height - 1 - i
+        };
+
         // --- Line 1: Piece Content ---
         print!("{:2} |", y + 1);
-        for x in 0..board.width {
+        for j in 0..board.width {
+            let x = if state.perspective == PlayerId::Player1 {
+                j
+            } else {
+                board.width - 1 - j
+            };
+
             let pos = Position::new(x, y);
             let piece = board.get_piece(pos);
-
+            // ... (rest of the logic remains same, but using x, y derived from perspective)
             let is_cursor = state.cursor == pos && !state.hand_mode;
             let is_selected = state.selected == Some(pos);
             let is_highlight = state.highlights.contains(&pos);
@@ -69,7 +87,6 @@ pub fn render_board(board: &Board, state: &DisplayState) {
                 false
             };
 
-            // 描画文字列の組み立て ([ ], ( ), or " ")
             let (prefix, suffix) = if is_cursor {
                 ("[", "]")
             } else if is_selected {
@@ -88,7 +105,6 @@ pub fn render_board(board: &Board, state: &DisplayState) {
                 format!("{} {}{}", prefix, char_str, suffix)
             };
 
-            // 色付け
             if is_cursor {
                 print!("{}", cell_text.yellow());
             } else if is_selected {
@@ -109,8 +125,8 @@ pub fn render_board(board: &Board, state: &DisplayState) {
         }
         print!("|\r\n");
 
-        // --- Line 2: Vertical Padding for Square Ratio (skip for last row) ---
-        if y < board.height - 1 {
+        // --- Line 2: Vertical Padding ---
+        if i < board.height - 1 {
             print!("   |");
             for _ in 0..board.width {
                 print!("    ");

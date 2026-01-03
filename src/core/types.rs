@@ -8,6 +8,12 @@ pub enum PlayerId {
     Player2, // 後手 (通常)
 }
 
+impl Default for PlayerId {
+    fn default() -> Self {
+        PlayerId::Player1
+    }
+}
+
 impl PlayerId {
     pub fn opponent(self) -> PlayerId {
         match self {

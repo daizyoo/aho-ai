@@ -25,6 +25,7 @@ impl PlayerController for TuiController {
 
     fn choose_move(&self, board: &Board, legal_moves_list: &[Move]) -> Option<Move> {
         let mut state = DisplayState::default();
+        state.perspective = self.player_id;
         state.last_move = board.last_move.clone();
         state.status_msg = Some(format!("{}'s turn ({:?})", self.name, self.player_id));
 
@@ -50,23 +51,47 @@ impl PlayerController for TuiController {
                             state.hand_mode = false;
                         }
                         KeyCode::Up => {
-                            if state.cursor.y > 0 {
-                                state.cursor.y -= 1;
+                            if state.perspective == PlayerId::Player1 {
+                                if state.cursor.y > 0 {
+                                    state.cursor.y -= 1;
+                                }
+                            } else {
+                                if state.cursor.y < board.height - 1 {
+                                    state.cursor.y += 1;
+                                }
                             }
                         }
                         KeyCode::Down => {
-                            if state.cursor.y < board.height - 1 {
-                                state.cursor.y += 1;
+                            if state.perspective == PlayerId::Player1 {
+                                if state.cursor.y < board.height - 1 {
+                                    state.cursor.y += 1;
+                                }
+                            } else {
+                                if state.cursor.y > 0 {
+                                    state.cursor.y -= 1;
+                                }
                             }
                         }
                         KeyCode::Left => {
-                            if state.cursor.x > 0 {
-                                state.cursor.x -= 1;
+                            if state.perspective == PlayerId::Player1 {
+                                if state.cursor.x > 0 {
+                                    state.cursor.x -= 1;
+                                }
+                            } else {
+                                if state.cursor.x < board.width - 1 {
+                                    state.cursor.x += 1;
+                                }
                             }
                         }
                         KeyCode::Right => {
-                            if state.cursor.x < board.width - 1 {
-                                state.cursor.x += 1;
+                            if state.perspective == PlayerId::Player1 {
+                                if state.cursor.x < board.width - 1 {
+                                    state.cursor.x += 1;
+                                }
+                            } else {
+                                if state.cursor.x > 0 {
+                                    state.cursor.x -= 1;
+                                }
                             }
                         }
                         KeyCode::Char('p') => {

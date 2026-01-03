@@ -22,6 +22,7 @@ impl Game {
         loop {
             // 現状をまず描画 (リモートプレイヤーも待機画面が見えるように)
             let mut state = crate::display::DisplayState::default();
+            state.perspective = self.current_player;
             state.last_move = self.board.last_move.clone();
             state.status_msg = Some(format!(
                 "{}'s turn ({:?})",
