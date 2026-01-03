@@ -12,7 +12,10 @@ pub struct Board {
     #[serde(with = "crate::core::serialization")]
     pub pieces: HashMap<Position, Piece>,
     /// 持ち駒
-    #[serde(with = "crate::core::serialization")]
+    #[serde(
+        serialize_with = "crate::core::serialization::serialize_hand",
+        deserialize_with = "crate::core::serialization::deserialize_hand"
+    )]
     pub hand: HashMap<PlayerId, HashMap<PieceKind, usize>>,
     /// プレイヤー設定
     #[serde(with = "crate::core::serialization")]

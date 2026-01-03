@@ -5,9 +5,8 @@ mod logic;
 mod network;
 mod player;
 
-use crate::core::{setup_from_strings, PlayerId};
-use crate::game::Game;
-use crate::player::{ai::RandomAI, PlayerController, TuiController};
+use crate::core::PlayerId;
+use crate::player::{PlayerController, TuiController};
 use crossterm::{execute, terminal};
 use std::io;
 
@@ -65,28 +64,26 @@ async fn run() -> anyhow::Result<()> {
 }
 
 async fn run_client() -> anyhow::Result<()> {
-    use crate::core::{Board, Move, PlayerId};
+    use crate::core::{Board, Move};
     use crate::game::Game;
     use crate::network::client::NetworkClient;
     use crate::player::network::NetworkController;
     use std::sync::mpsc;
+    use tokio::sync::mpsc as tokio_mpsc;
 
     print!("Connecting to server...\r\n");
-    let mut client = NetworkClient::connect("127.0.0.1:8080").await?;
+    let client = NetworkClient::connect("127.0.0.1:8080").await?;
     println!("Connected!");
 
     let (player_id_tx, player_id_rx) = mpsc::channel::<PlayerId>();
     let (board_tx, board_rx) = mpsc::channel::<Board>();
     let (remote_move_tx, remote_move_rx) = mpsc::channel::<Move>();
-
-    // Spawn network task
-    // We need a clone of client or move it. Let's wrap client in a task.
-    // Simplifying: we'll handle the handshake first.
+    let (local_move_tx, local_move_rx) = tokio_mpsc::unbounded_channel::<Move>();
 
     let mut client_handle = client;
     tokio::spawn(async move {
         if let Err(e) = client_handle
-            .run(player_id_tx, board_tx, remote_move_tx)
+            .run(player_id_tx, board_tx, remote_move_tx, local_move_rx)
             .await
         {
             eprintln!("Client networking error: {}", e);
@@ -118,12 +115,17 @@ async fn run_client() -> anyhow::Result<()> {
         p2 = Box::new(TuiController::new(PlayerId::Player2, "You"));
     }
 
-    game.play(p1.as_ref(), p2.as_ref());
+    game.play(p1.as_ref(), p2.as_ref(), |mv| {
+        let _ = local_move_tx.send(mv.clone());
+    });
 
     Ok(())
 }
 
 async fn run_local() -> anyhow::Result<()> {
+    use crate::core::setup_from_strings;
+    use crate::game::Game;
+    use crate::player::ai::weighted::WeightedRandomAI;
     use crossterm::event::{self, Event, KeyCode};
     use std::time::Duration;
 
@@ -131,7 +133,6 @@ async fn run_local() -> anyhow::Result<()> {
     print!("1. Human vs Human (TUI)\r\n");
     print!("2. Human vs Weighted AI\r\n");
     print!("3. Weighted AI vs Weighted AI\r\n");
-    print!("4. Random AI vs Random AI\r\n");
 
     let p_choice = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -140,7 +141,6 @@ async fn run_local() -> anyhow::Result<()> {
                     KeyCode::Char('1') => break "1",
                     KeyCode::Char('2') => break "2",
                     KeyCode::Char('3') => break "3",
-                    KeyCode::Char('4') => break "4",
                     KeyCode::Char('q') => return Ok(()),
                     _ => {}
                 }
@@ -155,25 +155,13 @@ async fn run_local() -> anyhow::Result<()> {
         ),
         "2" => (
             Box::new(TuiController::new(PlayerId::Player1, "Human")),
-            Box::new(crate::player::ai::weighted::WeightedRandomAI::new(
-                PlayerId::Player2,
-                "Weighted AI",
-            )),
+            Box::new(WeightedRandomAI::new(PlayerId::Player2, "Weighted AI")),
         ),
         "3" => (
-            Box::new(crate::player::ai::weighted::WeightedRandomAI::new(
-                PlayerId::Player1,
-                "Weighted AI 1",
-            )),
-            Box::new(crate::player::ai::weighted::WeightedRandomAI::new(
-                PlayerId::Player2,
-                "Weighted AI 2",
-            )),
+            Box::new(WeightedRandomAI::new(PlayerId::Player1, "Sente AI")),
+            Box::new(WeightedRandomAI::new(PlayerId::Player2, "Gote AI")),
         ),
-        _ => (
-            Box::new(RandomAI::new(PlayerId::Player1, "Random AI 1")),
-            Box::new(RandomAI::new(PlayerId::Player2, "Random AI 2")),
-        ),
+        _ => unreachable!(),
     };
 
     print!("\r\nSelect board setup:\r\n");
@@ -205,7 +193,7 @@ async fn run_local() -> anyhow::Result<()> {
     };
 
     let mut game = Game::new(board);
-    game.play(p1.as_ref(), p2.as_ref());
+    game.play(p1.as_ref(), p2.as_ref(), |_| {});
 
     Ok(())
 }

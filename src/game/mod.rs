@@ -15,8 +15,25 @@ impl Game {
         }
     }
 
-    pub fn play(&mut self, p1: &dyn PlayerController, p2: &dyn PlayerController) {
+    pub fn play<F>(&mut self, p1: &dyn PlayerController, p2: &dyn PlayerController, mut on_move: F)
+    where
+        F: FnMut(&crate::core::Move),
+    {
         loop {
+            // 現状をまず描画 (リモートプレイヤーも待機画面が見えるように)
+            let mut state = crate::display::DisplayState::default();
+            state.last_move = self.board.last_move.clone();
+            state.status_msg = Some(format!(
+                "{}'s turn ({:?})",
+                if self.current_player == PlayerId::Player1 {
+                    p1.name()
+                } else {
+                    p2.name()
+                },
+                self.current_player
+            ));
+            crate::display::render_board(&self.board, &state);
+
             // 合法手生成
             let moves = legal_moves(&self.board, self.current_player);
 
@@ -40,8 +57,8 @@ impl Game {
             };
 
             if controller.name().contains("AI") {
-                let mut state = crate::display::DisplayState::default();
-                state.last_move = self.board.last_move.clone();
+                // AI thinking message used to be here, but we now render at start of turn.
+                // Re-rendering with AI specific message if needed.
                 let check_msg = if crate::logic::is_in_check(&self.board, self.current_player) {
                     " (CHECK)"
                 } else {
@@ -56,6 +73,7 @@ impl Game {
             }
 
             if let Some(mv) = controller.choose_move(&self.board, &moves) {
+                on_move(&mv);
                 self.board = apply_move(&self.board, &mv, self.current_player);
                 self.current_player = self.current_player.opponent();
             } else {
