@@ -1,89 +1,104 @@
 use crate::core::{Board, PieceKind, PlayerId};
+use crate::player::ai::pst::get_pst_value;
 
-pub struct Evaluator;
+// Material Values (in CP) - Adjusted for Mixed
+const VAL_PAWN: i32 = 100;
+const VAL_LANCE: i32 = 300;
+const VAL_KNIGHT: i32 = 400; // Knight is strong in Shogi
+const VAL_SILVER: i32 = 500;
+const VAL_GOLD: i32 = 600;
+const VAL_BISHOP: i32 = 800;
+const VAL_ROOK: i32 = 1000;
+// King value effectively infinite for checkmate logic, but for eval we might use high number.
+const VAL_KING: i32 = 20000;
 
-impl Evaluator {
-    // 評価値の定数
-    const VAL_KING: i32 = 100000;
-    const VAL_QUEEN: i32 = 1000;
-    const VAL_ROOK: i32 = 900;
-    const VAL_BISHOP: i32 = 800;
+// Promoted
+const VAL_PRO_PAWN: i32 = 700; // Tokin ~ Gold
+const VAL_PRO_LANCE: i32 = 700;
+const VAL_PRO_KNIGHT: i32 = 700;
+const VAL_PRO_SILVER: i32 = 700;
+const VAL_PRO_BISHOP: i32 = 1200; // Horse
+const VAL_PRO_ROOK: i32 = 1500; // Dragon
 
-    const VAL_GOLD: i32 = 600;
-    const VAL_SILVER: i32 = 500;
-    const VAL_KNIGHT: i32 = 400;
-    const VAL_LANCE: i32 = 300;
-    const VAL_PAWN: i32 = 100;
+// Chess defaults
+const VAL_QUEEN: i32 = 1800; // Strongest
 
-    // 持ち駒の係数（1.1倍などは計算コストがかかるので、整数加算で調整）
-    const HAND_BONUS: i32 = 10;
+fn piece_val(k: PieceKind) -> i32 {
+    match k {
+        PieceKind::S_Pawn | PieceKind::C_Pawn => VAL_PAWN,
+        PieceKind::S_Lance => VAL_LANCE,
+        PieceKind::S_Knight | PieceKind::C_Knight => VAL_KNIGHT,
+        PieceKind::S_Silver => VAL_SILVER,
+        PieceKind::S_Gold => VAL_GOLD,
+        PieceKind::S_Bishop | PieceKind::C_Bishop => VAL_BISHOP,
+        PieceKind::S_Rook | PieceKind::C_Rook => VAL_ROOK,
+        PieceKind::S_King | PieceKind::C_King => VAL_KING,
+        PieceKind::C_Queen => VAL_QUEEN,
 
-    pub fn evaluate(board: &Board, player: PlayerId) -> i32 {
-        let mut score = 0;
-        let _opponent = player.opponent();
+        // Promoted Shogi
+        PieceKind::S_ProPawn => VAL_PRO_PAWN,
+        PieceKind::S_ProLance => VAL_PRO_LANCE,
+        PieceKind::S_ProKnight => VAL_PRO_KNIGHT,
+        PieceKind::S_ProSilver => VAL_PRO_SILVER,
+        PieceKind::S_ProBishop => VAL_PRO_BISHOP,
+        PieceKind::S_ProRook => VAL_PRO_ROOK,
+    }
+}
 
-        // 1. 盤上の駒 (Material) & King Safety (簡易的)
-        for (&pos, piece) in board.pieces.iter() {
-            let mut val = Self::get_piece_value(piece.kind);
+pub fn evaluate(board: &Board) -> i32 {
+    let mut score = 0;
 
-            // 玉の安全性ボーナス/ペナルティ
-            // 玉の周りに自分の駒があればプラス、なければマイナス（簡易）
-            if matches!(piece.kind, PieceKind::S_King | PieceKind::C_King) {
-                // 王の座標に基づく評価（端にいるほうが安全な場合が多いが、将棋とチェスで違うので中央回避のみ評価）
-                if pos.x == 4 && (pos.y == 4 || pos.y == 3 || pos.y == 5) {
-                    // 中央付近は危険
-                    val -= 50;
-                }
-            }
+    // 1. Material & PST
+    // Board stores pieces in a HashMap<Position, Piece>
+    // Iterating over keys gives random order, but score addition is commutative so it's fine.
+    for (&pos, piece) in &board.pieces {
+        let mat = piece_val(piece.kind);
 
-            if piece.owner == player {
-                score += val;
-            } else {
-                score -= val;
-            }
+        // PST requires an index 0..80.
+        // Position has x, y.
+        // Board is 9x9.
+        // Index = y * 9 + x. (Assuming 0-indexed x,y)
+        // Position struct likely has 1-indexed or 0-indexed. Let's check `core/types.rs` or `board.rs` if needed.
+        // Assuming 1-indexed based on "9x9". Wait, usually 0-indexed in code.
+        // Let's assume 0-indexed for now (0..9).
+        // Actually, previous code used `board.cells.iter().enumerate()`.
+        // `Board` struct definition shows `pieces: HashMap<Position, Piece>`.
+        // `Position` struct?
+
+        // Let's assume Position has x, y as (i8 or u8 or usize).
+        // x: 1..=9, y: 1..=9 ? Or 0..=8?
+        // Standard Shogi is 1..9.
+        // Let's coerce to 0-8 for PST index.
+        let idx = ((pos.y as usize - 1) * 9) + (pos.x as usize - 1); // Assuming 1-based.
+
+        let pst = get_pst_value(piece.kind, idx, piece.owner);
+
+        if piece.owner == PlayerId::Player1 {
+            score += mat + pst;
+        } else {
+            score -= mat + pst;
         }
-
-        // 2. 持ち駒 (Hand)
-        for (&p_id, hand) in board.hand.iter() {
-            for (&kind, &count) in hand.iter() {
-                if count > 0 {
-                    let val = Self::get_piece_value(kind) + Self::HAND_BONUS;
-                    if p_id == player {
-                        score += val * count as i32;
-                    } else {
-                        score -= val * count as i32;
-                    }
-                }
-            }
-        }
-
-        // 3. 機動力 (Mobility)
-        // 重い処理なので、Quiescence Searchなどでは省略することもあるが、
-        // ここでは PseudoLegalMoves の数などを加味すると強くなる。
-        // ただし毎ノード計算は遅いので、評価関数としては Material+Hand+Positioning を主とする。
-        // ここでは全合法手生成は重すぎるためスキップ。
-
-        score
     }
 
-    fn get_piece_value(kind: PieceKind) -> i32 {
-        match kind {
-            PieceKind::S_King | PieceKind::C_King => Self::VAL_KING,
-            PieceKind::C_Queen => Self::VAL_QUEEN,
-            PieceKind::S_Rook | PieceKind::C_Rook => Self::VAL_ROOK,
-            PieceKind::S_Bishop | PieceKind::C_Bishop => Self::VAL_BISHOP,
-            PieceKind::S_ProRook | PieceKind::S_ProBishop => 1100, // 成った大駒
-
-            PieceKind::S_Gold
-            | PieceKind::S_ProSilver
-            | PieceKind::S_ProKnight
-            | PieceKind::S_ProLance
-            | PieceKind::S_ProPawn => Self::VAL_GOLD,
-
-            PieceKind::S_Silver | PieceKind::C_Knight => Self::VAL_SILVER,
-            PieceKind::S_Knight => Self::VAL_KNIGHT,
-            PieceKind::S_Lance => Self::VAL_LANCE,
-            PieceKind::S_Pawn | PieceKind::C_Pawn => Self::VAL_PAWN,
+    // 2. Hand Material
+    // board.hand is HashMap<PlayerId, HashMap<PieceKind, u8>>
+    if let Some(hand) = board.hand.get(&PlayerId::Player1) {
+        for (kind, &count) in hand {
+            if count > 0 {
+                let val = piece_val(*kind);
+                score += (val + (val / 10)) * count as i32;
+            }
         }
     }
+
+    if let Some(hand) = board.hand.get(&PlayerId::Player2) {
+        for (kind, &count) in hand {
+            if count > 0 {
+                let val = piece_val(*kind);
+                score -= (val + (val / 10)) * count as i32;
+            }
+        }
+    }
+
+    score
 }

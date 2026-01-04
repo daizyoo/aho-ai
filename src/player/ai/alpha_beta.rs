@@ -1,4 +1,4 @@
-use super::eval::Evaluator;
+use super::eval;
 use super::tt::{Bound, TranspositionTable};
 use super::zobrist::ZobristHasher;
 use crate::core::{Board, Move, PlayerId};
@@ -92,7 +92,7 @@ impl AlphaBetaAI {
         // Base case or Checkmate/Stalemate
         let in_check = is_in_check(board, current_player);
         if depth == 0 {
-            return self.quiescence(board, alpha, beta, current_player);
+            return eval::evaluate(board);
         }
 
         let mut moves = legal_moves(board, current_player);
@@ -190,9 +190,9 @@ impl AlphaBetaAI {
         *self.nodes_evaluated.borrow_mut() += 1;
 
         // Stand-pat (なにもしない場合の評価値)
-        let stand_pat = Evaluator::evaluate(board, self.player_id);
+        let mut score = eval::evaluate(board);
 
-        stand_pat
+        score
     }
 
     fn order_moves(&self, board: &Board, moves: &mut [Move], _player: PlayerId) {
@@ -203,7 +203,7 @@ impl AlphaBetaAI {
                     // 1. MVV-LVA (Most Valuable Victim - Least Valuable Aggressor)
                     if let Some(target) = board.get_piece(*to) {
                         // 取る駒の価値が高いほど優先
-                        score -= Evaluator::evaluate(board, target.owner) - 1000;
+                        score -= eval::evaluate(board) - 1000;
                         // 取る自分の駒の価値が低いほど優先（リスク少）
                         if let Some(_attacker) = board.get_piece(*from) {
                             // ..
