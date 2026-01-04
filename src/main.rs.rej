@@ -1,0 +1,8 @@
+@@ -83,6 +85,7 @@
+                     KeyCode::Char('2') => break "server",
+                     KeyCode::Char('3') => break "client",
+                     KeyCode::Char('4') => break "selfplay",
++                    KeyCode::Char('5') => break "replay",
+                     KeyCode::Char('q') => return Ok(()),
+                     _ => {}
+                 }
