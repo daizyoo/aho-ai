@@ -241,6 +241,24 @@ async fn run_local() -> anyhow::Result<()> {
         }
     };
 
+    if p_choice == "10" {
+        let kifu_dir = "kifu";
+        if std::fs::read_dir(kifu_dir).is_err() {
+            std::fs::create_dir_all(kifu_dir)?;
+        }
+
+        if let Some(path) = select_kifu_file(kifu_dir)? {
+            let file = std::fs::File::open(path)?;
+            let history: Vec<crate::core::Move> = serde_json::from_reader(file)?;
+
+            // Viewer uses alternate screen, we are already in it or should ensure it.
+            // (Assuming main entered it)
+            let mut viewer = crate::game::replay::ReplayViewer::new(history);
+            viewer.run()?;
+        }
+        return Ok(());
+    }
+
     let (mut p1, mut p2, perspective): (
         Box<dyn PlayerController>,
         Box<dyn PlayerController>,
