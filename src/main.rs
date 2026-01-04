@@ -290,17 +290,6 @@ async fn run_local() -> anyhow::Result<()> {
                 PlayerId::Player1,
                 "Player1",
             )),
-            Box::new(crate::player::ai::WeightedRandomAI::new(
-                PlayerId::Player2,
-                "WeightedAI",
-            )),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        "3" => (
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player1,
-                "Player1",
-            )),
             Box::new(crate::player::ai::MinimaxAI::new(
                 PlayerId::Player2,
                 "MinimaxAI",
