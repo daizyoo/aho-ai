@@ -74,7 +74,6 @@ async fn run_menu() -> anyhow::Result<()> {
     print!("1. Local Play\r\n");
     print!("2. Start Server\r\n");
     print!("5. Replay Self-Play Kifu\r\n");
-    print!("3. Connect to Server\r\n");
     print!("4. Self-Play (Batch AI vs AI)\r\n");
     print!("5. Replay Self-Play Kifu\r\n");
 
@@ -128,7 +127,6 @@ async fn run_menu() -> anyhow::Result<()> {
             run_client(&addr).await
         }
         "selfplay" => run_selfplay().await,
-        "replay" => replay_selector::run_replay_selector().await,
         "replay" => replay_selector::run_replay_selector().await,
         _ => run_local().await,
     }
