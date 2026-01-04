@@ -1,8 +1,15 @@
-use crate::core::{Board, PlayerId};
+use crate::core::{Board, Move, PlayerId};
 use crate::logic::{apply_move, legal_moves};
 use crate::player::PlayerController;
+use serde::{Deserialize, Serialize};
 
 pub mod replay;
+
+#[derive(Serialize, Deserialize)]
+pub struct KifuData {
+    pub initial_board: Board,
+    pub moves: Vec<Move>,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PerspectiveMode {
@@ -11,16 +18,18 @@ pub enum PerspectiveMode {
 }
 
 pub struct Game {
-    pub board: Board,
-    pub current_player: PlayerId,
+    board: Board,
+    initial_board: Board,
+    current_player: PlayerId,
     pub board_sync_rx: Option<std::sync::mpsc::Receiver<(Board, PlayerId)>>,
     pub perspective_mode: PerspectiveMode,
-    pub history: Vec<crate::core::Move>,
+    history: Vec<Move>,
 }
 
 impl Game {
     pub fn new(board: Board) -> Self {
         Game {
+            initial_board: board.clone(),
             board,
             current_player: PlayerId::Player1,
             board_sync_rx: None,
@@ -199,8 +208,12 @@ impl Game {
 
             match std::fs::File::create(&filepath) {
                 Ok(file) => {
+                    let kifu_data = KifuData {
+                        initial_board: self.initial_board.clone(),
+                        moves: self.history.clone(),
+                    };
                     // Minified JSON (not pretty) to keep it lightweight
-                    if let Err(e) = serde_json::to_writer(file, &self.history) {
+                    if let Err(e) = serde_json::to_writer(file, &kifu_data) {
                         println!("Failed to write kifu: {}", e);
                     } else {
                         println!("Kifu saved to {}", filepath.display());

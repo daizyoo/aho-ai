@@ -1,4 +1,3 @@
-use crate::core::setup::setup_from_strings;
 use crate::core::{Board, Move, PlayerId};
 use crate::display::{render_board, DisplayState};
 use crate::logic::apply_move;
@@ -12,56 +11,22 @@ pub struct ReplayViewer {
 }
 
 impl ReplayViewer {
-    pub fn new(history: Vec<Move>) -> Self {
-        // Pre-calculate all board states
+    pub fn new(kifu_data: crate::game::KifuData) -> Self {
+        // Pre-calculate all board states using the saved initial board
         let mut boards = Vec::new();
-        // Default to reversed mixed setup (Chess P1 vs Shogi P2) as per original MVP assumption
-        // or wait, let's use standard Shogi vs Chess?
-        // Let's stick to what I wrote before: get_reversed_mixed_setup (Wait, usually P1 is human, so Shogi vs Chess is standard?)
-        // Let's use get_standard_mixed_setup() (Shogi P1 vs Chess P2) as default for now if generic.
-        // Actually, main loop defaults to "5" (Fair) or "reversed_fair".
-        // Let's assume Standard Mixed (Shogi P1 vs Chess P2) for simplicity or try to guess.
-        // Or better: use setup_from_strings properly.
-
-        // let map = crate::core::setup::get_reversed_mixed_setup();
-        // let board = setup_from_strings(&map, false, true); // P1=Chess, P2=Shogi ? Reversed mixed setup implies P1=Chess likely if "reversed".
-
-        // Wait, "Reversed Mixed" = Chess (P1) vs Shogi (P2).
-        // "Standard Mixed" = Shogi (P1) vs Chess (P2).
-        // Let's use Standard Mixed (Shogi P1) as default?
-        // Or if the user previously played Reversed Fair... mismatch.
-        // Ideally we save metadata.
-        // For MVP, I will use "Standard Mixed" setup (Shogi P1, Chess P2).
-
-        let map = crate::core::setup::get_standard_mixed_setup();
-        let mut board = setup_from_strings(&map, true, false); // P1=Shogi, P2=Chess
+        let mut board = kifu_data.initial_board;
         let mut current_player = PlayerId::Player1;
-
-        // Note: The initial board setup might be different depending on the saved game!
-        // Ideally, we should save the initial board state in the Kifu as well.
-        // For now, we'll assume the user needs to select the correct setup or we default to a standard one.
-        // Wait, Kifu just saves moves. If we played "Fair" setup, replay on "Standard" setup will break.
-        // REQUIREMENT GAP: Kifu needs to store initial board or setup type.
-        // For now, to keep it "lightweight" and simple as requested, let's just use the moves.
-        // But if moves are invalid for default board, it will panic or error.
-        // Let's assume Standard Mixed for now or maybe we can make the user choose setup before replay?
-        // Actually, let's default to standard_mixed for '1', but '5' is fair.
-        // Improvement: Let's try to infer or just ask user?
-        // OR: simpler: Just assume standard mixed for now as MVP.
-        //
-        // Actually, previous implementation relied on `main.rs` to setup board.
-        // Let's allow passing the initial board to `new`.
 
         boards.push(board.clone());
 
-        for mv in &history {
+        for mv in &kifu_data.moves {
             board = apply_move(&board, mv, current_player);
             boards.push(board.clone());
             current_player = current_player.opponent();
         }
 
         Self {
-            history,
+            history: kifu_data.moves,
             boards,
             current_index: 0,
         }

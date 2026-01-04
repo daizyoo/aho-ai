@@ -248,11 +248,11 @@ async fn run_local() -> anyhow::Result<()> {
 
         if let Some(path) = select_kifu_file(kifu_dir)? {
             let file = std::fs::File::open(path)?;
-            let history: Vec<crate::core::Move> = serde_json::from_reader(file)?;
+            let kifu_data: crate::game::KifuData = serde_json::from_reader(file)?;
 
             // Viewer uses alternate screen, we are already in it or should ensure it.
             // (Assuming main entered it)
-            let mut viewer = crate::game::replay::ReplayViewer::new(history);
+            let mut viewer = crate::game::replay::ReplayViewer::new(kifu_data);
             viewer.run()?;
         }
         return Ok(());
@@ -478,7 +478,10 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
     files.reverse();
 
     if files.is_empty() {
-        print!("No kifu files found in '{}'. Press any key to return.\r\n", dir);
+        print!(
+            "No kifu files found in '{}'. Press any key to return.\r\n",
+            dir
+        );
         loop {
             if event::poll(Duration::from_millis(100))? {
                 if let Event::Key(_) = event::read()? {
