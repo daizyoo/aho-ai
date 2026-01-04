@@ -37,7 +37,8 @@ impl PlayerController for TuiController {
         state.status_msg = Some(format!("{}'s turn ({:?})", self.name, self.player_id));
 
         // 前回位置があれば復元、なければキングに合わせる
-        if let Some(pos) = *self.last_cursor.borrow() {
+        let cached_pos = *self.last_cursor.borrow();
+        if let Some(pos) = cached_pos {
             state.cursor = pos;
         } else if let Some(king_pos) = board.find_king(self.player_id) {
             state.cursor = king_pos;
