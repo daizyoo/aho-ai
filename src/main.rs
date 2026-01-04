@@ -210,13 +210,18 @@ async fn run_local() -> anyhow::Result<()> {
 
     print!("\r\nSelect players:\r\n");
     print!("1. Human vs Human (TUI)\r\n");
+    print!("\r\n");
+    print!("--- Player vs AI ---\r\n");
     print!("2. Player vs Random AI\r\n");
     print!("3. Player vs Weighted Random AI\r\n");
     print!("4. Player vs Minimax AI (Depth 2)\r\n");
-    print!("5. Weighted AI vs Weighted AI\r\n");
     print!("7. Player vs Alpha-Beta AI (Light)\r\n");
     print!("8. Player vs Alpha-Beta AI (Strong)\r\n");
+    print!("\r\n");
+    print!("--- AI vs AI ---\r\n");
+    print!("5. Weighted AI vs Weighted AI\r\n");
     print!("9. Alpha-Beta AI (Strong) vs Alpha-Beta AI (Strong)\r\n");
+    print!("\r\n");
     print!("10. Replay Game Record (Kifu)\r\n");
 
     let p_choice = loop {
