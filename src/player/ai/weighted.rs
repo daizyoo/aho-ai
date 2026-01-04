@@ -68,4 +68,8 @@ impl PlayerController for WeightedRandomAI {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn is_local(&self) -> bool {
+        true
+    }
 }

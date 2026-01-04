@@ -80,7 +80,7 @@ async fn run_client() -> anyhow::Result<()> {
     let (local_move_tx, local_move_rx) = tokio_mpsc::unbounded_channel::<Move>();
 
     // 盤面更新同期用
-    let (board_sync_tx, board_sync_rx) = mpsc::channel::<Board>();
+    let (board_sync_tx, board_sync_rx) = mpsc::channel::<(Board, PlayerId)>();
 
     let mut client_handle = client;
     tokio::spawn(async move {
@@ -97,7 +97,7 @@ async fn run_client() -> anyhow::Result<()> {
     print!("Waiting for opponent...\r\n");
     let my_id = player_id_rx.recv()?;
     // 初期盤面を同期チャネルから受け取る
-    let board = board_sync_rx.recv()?;
+    let (board, _next_player) = board_sync_rx.recv()?;
 
     let mut game = Game::new(board);
     game.board_sync_rx = Some(board_sync_rx);

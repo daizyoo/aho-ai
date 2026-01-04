@@ -23,4 +23,8 @@ impl PlayerController for RandomAI {
         let mut rng = rand::thread_rng();
         legal_moves.choose(&mut rng).cloned()
     }
+
+    fn is_local(&self) -> bool {
+        true
+    }
 }

@@ -11,7 +11,7 @@ pub enum PerspectiveMode {
 pub struct Game {
     pub board: Board,
     pub current_player: PlayerId,
-    pub board_sync_rx: Option<std::sync::mpsc::Receiver<Board>>,
+    pub board_sync_rx: Option<std::sync::mpsc::Receiver<(Board, PlayerId)>>,
     pub perspective_mode: PerspectiveMode,
 }
 
@@ -30,10 +30,11 @@ impl Game {
         F: FnMut(&crate::core::Move),
     {
         loop {
-            // 外部（ネットワーク等）からの盤面更新があれば反映
+            // 外部（ネットワーク等）からの盤面・手番更新があれば反映
             if let Some(ref rx) = self.board_sync_rx {
-                while let Ok(new_board) = rx.try_recv() {
+                while let Ok((new_board, next_player)) = rx.try_recv() {
                     self.board = new_board;
+                    self.current_player = next_player;
                 }
             }
 
@@ -94,13 +95,25 @@ impl Game {
             if let Some(mv) = controller.choose_move(&self.board, &moves) {
                 // 移動適用前の最終同期チェック
                 if let Some(ref rx) = self.board_sync_rx {
-                    while let Ok(new_board) = rx.try_recv() {
+                    while let Ok((new_board, next_player)) = rx.try_recv() {
                         self.board = new_board;
+                        self.current_player = next_player;
                     }
                 }
 
+                // サーバーからの同期によって手番が変わっていたら、この指し手は無効（または既に適用済み）
+                let current_controller = match self.current_player {
+                    PlayerId::Player1 => p1,
+                    PlayerId::Player2 => p2,
+                };
+                if !std::ptr::eq(controller, current_controller) {
+                    continue;
+                }
+
                 // ローカルで移動を適用
-                on_move(&mv);
+                if controller.is_local() {
+                    on_move(&mv);
+                }
                 self.board = apply_move(&self.board, &mv, self.current_player);
                 self.current_player = self.current_player.opponent();
             } else {

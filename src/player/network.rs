@@ -28,4 +28,8 @@ impl PlayerController for NetworkController {
         // Block until a move is received from the server
         self.rx.recv().ok()
     }
+
+    fn is_local(&self) -> bool {
+        false
+    }
 }

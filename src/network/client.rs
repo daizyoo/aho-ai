@@ -18,7 +18,7 @@ impl NetworkClient {
     pub async fn run(
         &mut self,
         player_id_tx: mpsc::Sender<PlayerId>,
-        board_tx: mpsc::Sender<Board>,
+        board_tx: mpsc::Sender<(Board, PlayerId)>,
         remote_move_tx: mpsc::Sender<Move>,
         mut local_move_rx: tokio_mpsc::UnboundedReceiver<Move>,
     ) -> anyhow::Result<()> {
@@ -42,15 +42,16 @@ impl NetworkClient {
                     match msg {
                         NetMessage::Welcome { player_id, board } => {
                             let _ = player_id_tx.send(player_id);
-                            let _ = board_tx.send(board);
+                            let _ = board_tx.send((board, PlayerId::Player1));
                         }
                         NetMessage::MatchFound { opponent_name: _ } => {
                         }
-                        NetMessage::Update { board, last_move: _, next_player: _ } => {
-                            let _ = board_tx.send(board);
-                        }
-                        NetMessage::MakeMove { mv } => {
-                            let _ = remote_move_tx.send(mv);
+                        NetMessage::Update { board, last_move, next_player } => {
+                            // 相手の指し手をUI表示用に流す
+                            if let Some(mv) = last_move {
+                                let _ = remote_move_tx.send(mv);
+                            }
+                            let _ = board_tx.send((board, next_player));
                         }
                         NetMessage::GameOver { winner: _, reason: _ } => {
                             break;

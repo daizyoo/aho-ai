@@ -23,6 +23,10 @@ impl PlayerController for TuiController {
         &self.name
     }
 
+    fn is_local(&self) -> bool {
+        true
+    }
+
     fn choose_move(&self, board: &Board, legal_moves_list: &[Move]) -> Option<Move> {
         let mut state = DisplayState::default();
         state.perspective = self.player_id;
