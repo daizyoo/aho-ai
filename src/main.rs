@@ -583,14 +583,86 @@ async fn run_selfplay() -> anyhow::Result<()> {
         num_input.parse().unwrap_or(10)
     };
 
+
+    // AI1 Strength Selection
+    print!("\r\nPlayer 1 AI Strength:\r\n");
+    print!("1. Light (Depth 4, 1s)\r\n");
+    print!("2. Strong (Depth 6, 3s)\r\n");
+    print!("Select (default: 2): ");
+    
+    let ai1_strength = loop {
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('1') => {
+                        print!("1\r\n");
+                        break crate::player::ai::AIStrength::Light;
+                    }
+                    KeyCode::Char('2') | KeyCode::Enter => {
+                        print!("2\r\n");
+                        break crate::player::ai::AIStrength::Strong;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    };
+
+    // AI2 Strength Selection
+    print!("\r\nPlayer 2 AI Strength:\r\n");
+    print!("1. Light (Depth 4, 1s)\r\n");
+    print!("2. Strong (Depth 6, 3s)\r\n");
+    print!("Select (default: 2): ");
+    
+    let ai2_strength = loop {
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('1') => {
+                        print!("1\r\n");
+                        break crate::player::ai::AIStrength::Light;
+                    }
+                    KeyCode::Char('2') | KeyCode::Enter => {
+                        print!("2\r\n");
+                        break crate::player::ai::AIStrength::Strong;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    };
+
+    // Board Setup Selection
+    print!("\r\nBoard Setup:\r\n");
+    print!("1. Standard Mixed (Shogi P1 vs Chess P2)\r\n");
+    print!("2. Fair (Symmetric Mixed)\r\n");
+    print!("Select (default: 2): ");
+    
+    let board_setup = loop {
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('1') => {
+                        print!("1\r\n");
+                        break crate::selfplay::BoardSetupType::StandardMixed;
+                    }
+                    KeyCode::Char('2') | KeyCode::Enter => {
+                        print!("2\r\n");
+                        break crate::selfplay::BoardSetupType::Fair;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    };
     print!("\r\n\r\nRunning {} games...\r\n\r\n", num_games);
 
     // Run self-play
     let config = crate::selfplay::SelfPlayConfig {
         num_games,
-        ai1_strength: crate::player::ai::AIStrength::Strong,
-        ai2_strength: crate::player::ai::AIStrength::Strong,
-        board_setup: crate::selfplay::BoardSetupType::Fair,
+        ai1_strength,
+        ai2_strength,
+        board_setup,
         save_kifus: false,
     };
 
