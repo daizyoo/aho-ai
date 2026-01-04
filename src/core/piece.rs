@@ -202,7 +202,7 @@ impl Piece {
     }
 
     pub fn display_char(&self) -> char {
-        let ch = match self.kind {
+        match self.kind {
             PieceKind::S_King => '王',
             PieceKind::S_Rook => '飛',
             PieceKind::S_Bishop => '角',
@@ -223,11 +223,6 @@ impl Piece {
             PieceKind::C_Bishop => 'B',
             PieceKind::C_Knight => 'N',
             PieceKind::C_Pawn => 'P',
-        };
-        if self.owner == PlayerId::Player2 && !self.is_shogi {
-            ch.to_lowercase().next().unwrap()
-        } else {
-            ch
         }
     }
 
