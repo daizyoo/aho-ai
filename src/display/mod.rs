@@ -2,7 +2,6 @@ use crate::core::{Board, PlayerId, Position};
 use crossterm::{cursor, execute, style::Stylize, terminal};
 use std::io::stdout;
 
-#[derive(Default)]
 pub struct DisplayState {
     pub cursor: Position,
     pub selected: Option<Position>,
@@ -15,12 +14,25 @@ pub struct DisplayState {
     pub show_cursor: bool,
 }
 
+impl Default for DisplayState {
+    fn default() -> Self {
+        Self {
+            cursor: Position::default(),
+            selected: None,
+            highlights: Vec::new(),
+            status_msg: None,
+            hand_mode: false,
+            hand_index: 0,
+            last_move: None,
+            perspective: PlayerId::default(),
+            show_cursor: true, // Default to showing cursor
+        }
+    }
+}
+
 impl DisplayState {
     pub fn new() -> Self {
-        Self {
-            show_cursor: true, // Default to showing cursor
-            ..Default::default()
-        }
+        Self::default()
     }
 }
 

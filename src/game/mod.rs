@@ -104,7 +104,7 @@ impl Game {
                 crate::display::render_board(&self.board, &state);
 
                 // 思考ウェイト中に終了判定
-                let timeout = std::time::Duration::from_millis(0);
+                let timeout = std::time::Duration::from_millis(100);
                 if crossterm::event::poll(timeout).unwrap_or(false) {
                     if let crossterm::event::Event::Key(key) =
                         crossterm::event::read().unwrap_or(crossterm::event::Event::Key(
