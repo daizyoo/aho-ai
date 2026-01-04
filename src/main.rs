@@ -244,7 +244,7 @@ async fn run_local() -> anyhow::Result<()> {
         }
     };
 
-    if p_choice == "10" {
+    if p_choice == "9" {
         let kifu_dir = "kifu";
         if std::fs::read_dir(kifu_dir).is_err() {
             std::fs::create_dir_all(kifu_dir)?;
@@ -312,17 +312,6 @@ async fn run_local() -> anyhow::Result<()> {
             PerspectiveMode::Fixed(PlayerId::Player1),
         ),
         "5" => (
-            Box::new(crate::player::ai::WeightedRandomAI::new(
-                PlayerId::Player1,
-                "WeightedAI1",
-            )),
-            Box::new(crate::player::ai::WeightedRandomAI::new(
-                PlayerId::Player2,
-                "WeightedAI2",
-            )),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        "7" => (
             Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
                 "Player1",
@@ -334,7 +323,7 @@ async fn run_local() -> anyhow::Result<()> {
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
         ),
-        "8" => (
+        "6" => (
             Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
                 "Player1",
@@ -346,7 +335,18 @@ async fn run_local() -> anyhow::Result<()> {
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
         ),
-        "9" => (
+        "7" => (
+            Box::new(crate::player::ai::WeightedRandomAI::new(
+                PlayerId::Player1,
+                "WeightedAI1",
+            )),
+            Box::new(crate::player::ai::WeightedRandomAI::new(
+                PlayerId::Player2,
+                "WeightedAI2",
+            )),
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        "8" => (
             Box::new(crate::player::ai::AlphaBetaAI::new(
                 PlayerId::Player1,
                 "AlphaBeta-Strong-1",
@@ -359,17 +359,7 @@ async fn run_local() -> anyhow::Result<()> {
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
         ),
-        "10" => (
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player1,
-                "Player1",
-            )),
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player2,
-                "Player2",
-            )),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
+
         _ => (
             Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
