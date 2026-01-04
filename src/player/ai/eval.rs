@@ -23,6 +23,10 @@ const VAL_PRO_ROOK: i32 = 1500; // Dragon
 // Chess defaults
 const VAL_QUEEN: i32 = 1800; // Strongest
 
+// Hand piece bonus (increased from 1.1 to 1.2 based on self-play analysis)
+// Analysis shows winners use drops 14.8% of moves - higher value encourages this
+const HAND_PIECE_BONUS_MULTIPLIER: f32 = 1.2;
+
 fn piece_val(k: PieceKind) -> i32 {
     match k {
         PieceKind::S_Pawn | PieceKind::C_Pawn => VAL_PAWN,
@@ -86,7 +90,7 @@ pub fn evaluate(board: &Board) -> i32 {
         for (kind, &count) in hand {
             if count > 0 {
                 let val = piece_val(*kind);
-                score += (val + (val / 10)) * count as i32;
+                score += (val as f32 * HAND_PIECE_BONUS_MULTIPLIER) as i32 * count as i32;
             }
         }
     }
@@ -95,7 +99,7 @@ pub fn evaluate(board: &Board) -> i32 {
         for (kind, &count) in hand {
             if count > 0 {
                 let val = piece_val(*kind);
-                score -= (val + (val / 10)) * count as i32;
+                score -= (val as f32 * HAND_PIECE_BONUS_MULTIPLIER) as i32 * count as i32;
             }
         }
     }
