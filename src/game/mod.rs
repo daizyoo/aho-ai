@@ -43,12 +43,21 @@ impl Game {
             }
 
             // 現状をまず描画 (リモートプレイヤーも待機画面が見えるように)
-            let mut state = crate::display::DisplayState::default();
+            let mut state = crate::display::DisplayState::new();
             state.perspective = match self.perspective_mode {
                 PerspectiveMode::Fixed(p) => p,
                 PerspectiveMode::AutoFlip => self.current_player,
             };
             state.last_move = self.board.last_move.clone();
+
+            // AI vs AIの場合はカーソルを表示しない
+            let current_controller = match self.current_player {
+                PlayerId::Player1 => p1,
+                PlayerId::Player2 => p2,
+            };
+            state.show_cursor =
+                current_controller.is_local() && !current_controller.name().contains("AI");
+
             state.status_msg = Some(format!(
                 "{}'s turn ({:?})",
                 if self.current_player == PlayerId::Player1 {

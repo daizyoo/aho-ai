@@ -12,6 +12,16 @@ pub struct DisplayState {
     pub hand_index: usize,
     pub last_move: Option<crate::core::Move>,
     pub perspective: PlayerId,
+    pub show_cursor: bool,
+}
+
+impl DisplayState {
+    pub fn new() -> Self {
+        Self {
+            show_cursor: true, // Default to showing cursor
+            ..Default::default()
+        }
+    }
 }
 
 pub fn render_board(board: &Board, state: &DisplayState) {
@@ -66,7 +76,7 @@ pub fn render_board(board: &Board, state: &DisplayState) {
             let pos = Position::new(x, y);
             let piece = board.get_piece(pos);
             // ... (rest of the logic remains same, but using x, y derived from perspective)
-            let is_cursor = state.cursor == pos && !state.hand_mode;
+            let is_cursor = state.show_cursor && state.cursor == pos && !state.hand_mode;
             let is_selected = state.selected == Some(pos);
             let is_highlight = state.highlights.contains(&pos);
 
