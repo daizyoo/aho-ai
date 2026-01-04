@@ -4,8 +4,8 @@ mod game;
 mod logic;
 mod network;
 mod player;
-mod selfplay;
 mod replay_selector;
+mod selfplay;
 
 use crate::core::PlayerId;
 use crate::player::{PlayerController, TuiController};
@@ -462,7 +462,7 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
 
     // Collect files from both directories with labels
     let mut files_with_labels: Vec<(String, std::path::PathBuf)> = Vec::new();
-    
+
     // Add regular kifu files
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.filter_map(|e| e.ok()) {
@@ -474,7 +474,7 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
             }
         }
     }
-    
+
     // Add self-play kifu files
     let selfplay_dir = "selfplay_kifu";
     if let Ok(entries) = fs::read_dir(selfplay_dir) {
@@ -497,8 +497,10 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
     files_with_labels.reverse();
 
     if files_with_labels.is_empty() {
-        print!("No kifu files found. Press any key to return.
-");
+        print!(
+            "No kifu files found. Press any key to return.
+"
+        );
         loop {
             if event::poll(Duration::from_millis(100))? {
                 if let Event::Key(_) = event::read()? {
@@ -517,18 +519,14 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
             terminal::Clear(terminal::ClearType::All),
             crossterm::cursor::MoveTo(0, 0)
         )?;
-        print!("Select Kifu to Replay (↑/↓ or j/k / Enter / q):
-");
-        print!("------------------------------------------------
-");
+        print!("Select Kifu to Replay (↑/↓ or j/k / Enter / q):\r\n");
+        print!("------------------------------------------------\r\n");
 
         for (i, (label, _)) in files_with_labels.iter().enumerate() {
             if i == selected_index {
-                print!("> {}
-", label);
+                print!("> {}\r\n", label);
             } else {
-                print!("  {}
-", label);
+                print!("  {}\r\n", label);
             }
         }
 
