@@ -195,6 +195,11 @@ fn run_game_silent(
             }
         }
 
+
+        // Display current move being calculated
+        print!("\rMove {}: {:?} thinking...", move_count + 1, current_player);
+        std::io::Write::flush(&mut std::io::stdout())?;
+
         if let Some(chosen_move) = controller.choose_move(&game.board, &legal_moves) {
             game.board = crate::logic::apply_move(&game.board, &chosen_move, current_player);
             game.history.push(chosen_move);
