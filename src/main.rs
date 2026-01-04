@@ -8,7 +8,7 @@ mod player;
 use crate::core::PlayerId;
 use crate::player::{PlayerController, TuiController};
 use crossterm::{execute, terminal};
-use std::io;
+use std::io::{self, Write};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -214,9 +214,9 @@ async fn run_local() -> anyhow::Result<()> {
     print!("3. Player vs Weighted Random AI\r\n");
     print!("4. Player vs Minimax AI (Depth 2)\r\n");
     print!("5. Weighted AI vs Weighted AI\r\n");
-    print!("6. Minimax AI vs Weighted AI\r\n");
     print!("7. Player vs Alpha-Beta AI (Strong)\r\n");
     print!("8. Alpha-Beta AI vs Alpha-Beta AI (Strong)\r\n");
+    print!("9. Replay Game Record (Kifu)\r\n");
 
     let p_choice = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -230,12 +230,40 @@ async fn run_local() -> anyhow::Result<()> {
                     KeyCode::Char('6') => break "6",
                     KeyCode::Char('7') => break "7",
                     KeyCode::Char('8') => break "8",
+                    KeyCode::Char('9') => break "9",
                     KeyCode::Char('q') => return Ok(()),
                     _ => {}
                 }
             }
         }
     };
+
+    if p_choice == "9" {
+        // Replay Mode
+        execute!(io::stdout(), terminal::LeaveAlternateScreen)?; // Temporarily leave to ask filename
+        let default_name = "kifu.json";
+        print!("Enter kifu filename (default: {}): ", default_name);
+        io::stdout().flush()?;
+
+        let mut filename_input = String::new();
+        io::stdin().read_line(&mut filename_input)?;
+        let filename = filename_input.trim();
+        let filename = if filename.is_empty() {
+            default_name
+        } else {
+            filename
+        };
+
+        // Load JSON
+        let file = std::fs::File::open(filename)?;
+        let history: Vec<crate::core::Move> = serde_json::from_reader(file)?;
+
+        execute!(io::stdout(), terminal::EnterAlternateScreen)?; // Back to alt screen
+        let mut viewer = crate::game::replay::ReplayViewer::new(history);
+        viewer.run()?;
+
+        return Ok(());
+    }
 
     let (p1, p2, perspective): (
         Box<dyn PlayerController>,

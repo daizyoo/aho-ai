@@ -2,6 +2,8 @@ use crate::core::{Board, PlayerId};
 use crate::logic::{apply_move, legal_moves};
 use crate::player::PlayerController;
 
+pub mod replay;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PerspectiveMode {
     Fixed(PlayerId),
@@ -71,7 +73,7 @@ impl Game {
                     },
                 );
                 crate::display::render_board(&self.board, &state);
-                std::thread::sleep(std::time::Duration::from_secs(3));
+                std::thread::sleep(std::time::Duration::from_secs(10));
                 break;
             }
 
@@ -173,7 +175,8 @@ impl Game {
 
             match std::fs::File::create(filename) {
                 Ok(file) => {
-                    if let Err(e) = serde_json::to_writer_pretty(file, &self.history) {
+                    // Minified JSON (not pretty) to keep it lightweight
+                    if let Err(e) = serde_json::to_writer(file, &self.history) {
                         println!("Failed to write kifu: {}", e);
                     } else {
                         println!("Kifu saved to {}", filename);
@@ -184,7 +187,5 @@ impl Game {
             // Wait user to see message
             std::thread::sleep(std::time::Duration::from_secs(2));
         }
-
-        // main.rs側で再度 enable_raw_mode されるが、念のため
     }
 }
