@@ -215,14 +215,14 @@ async fn run_local() -> anyhow::Result<()> {
     print!("2. Player vs Random AI\r\n");
     print!("3. Player vs Weighted Random AI\r\n");
     print!("4. Player vs Minimax AI (Depth 2)\r\n");
-    print!("7. Player vs Alpha-Beta AI (Light)\r\n");
-    print!("8. Player vs Alpha-Beta AI (Strong)\r\n");
+    print!("5. Player vs Alpha-Beta AI (Light)\r\n");
+    print!("6. Player vs Alpha-Beta AI (Strong)\r\n");
     print!("\r\n");
     print!("--- AI vs AI ---\r\n");
-    print!("5. Weighted AI vs Weighted AI\r\n");
-    print!("9. Alpha-Beta AI (Strong) vs Alpha-Beta AI (Strong)\r\n");
+    print!("7. Weighted AI vs Weighted AI\r\n");
+    print!("8. Alpha-Beta AI (Strong) vs Alpha-Beta AI (Strong)\r\n");
     print!("\r\n");
-    print!("10. Replay Game Record (Kifu)\r\n");
+    print!("9. Replay Game Record (Kifu)\r\n");
 
     let p_choice = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -237,7 +237,6 @@ async fn run_local() -> anyhow::Result<()> {
                     KeyCode::Char('7') => break "7",
                     KeyCode::Char('8') => break "8",
                     KeyCode::Char('9') => break "9",
-                    KeyCode::Char('0') => break "10", // For option 10
                     KeyCode::Char('q') => return Ok(()),
                     _ => {}
                 }
