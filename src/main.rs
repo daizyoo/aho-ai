@@ -212,17 +212,15 @@ async fn run_local() -> anyhow::Result<()> {
     print!("1. Human vs Human (TUI)\r\n");
     print!("\r\n");
     print!("--- Player vs AI ---\r\n");
-    print!("2. Player vs Random AI\r\n");
-    print!("3. Player vs Weighted Random AI\r\n");
-    print!("4. Player vs Minimax AI (Depth 2)\r\n");
-    print!("5. Player vs Alpha-Beta AI (Light)\r\n");
-    print!("6. Player vs Alpha-Beta AI (Strong)\r\n");
+    print!("2. Player vs Weighted Random AI\r\n");
+    print!("3. Player vs Minimax AI (Depth 2)\r\n");
+    print!("4. Player vs Alpha-Beta AI (Light)\r\n");
+    print!("5. Player vs Alpha-Beta AI (Strong)\r\n");
     print!("\r\n");
     print!("--- AI vs AI ---\r\n");
-    print!("7. Weighted AI vs Weighted AI\r\n");
-    print!("8. Alpha-Beta AI (Strong) vs Alpha-Beta AI (Strong)\r\n");
+    print!("6. Alpha-Beta AI (Strong) vs Alpha-Beta AI (Strong)\r\n");
     print!("\r\n");
-    print!("9. Replay Game Record (Kifu)\r\n");
+    print!("7. Replay Game Record (Kifu)\r\n");
 
     let p_choice = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -235,8 +233,6 @@ async fn run_local() -> anyhow::Result<()> {
                     KeyCode::Char('5') => break "5",
                     KeyCode::Char('6') => break "6",
                     KeyCode::Char('7') => break "7",
-                    KeyCode::Char('8') => break "8",
-                    KeyCode::Char('9') => break "9",
                     KeyCode::Char('q') => return Ok(()),
                     _ => {}
                 }
@@ -244,7 +240,7 @@ async fn run_local() -> anyhow::Result<()> {
         }
     };
 
-    if p_choice == "9" {
+    if p_choice == "7" {
         let kifu_dir = "kifu";
         if std::fs::read_dir(kifu_dir).is_err() {
             std::fs::create_dir_all(kifu_dir)?;
@@ -300,7 +296,7 @@ async fn run_local() -> anyhow::Result<()> {
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
         ),
-        "4" => (
+        "3" => (
             Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
                 "Player1",
@@ -311,7 +307,7 @@ async fn run_local() -> anyhow::Result<()> {
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
         ),
-        "5" => (
+        "4" => (
             Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
                 "Player1",
@@ -323,7 +319,7 @@ async fn run_local() -> anyhow::Result<()> {
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
         ),
-        "6" => (
+        "5" => (
             Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
                 "Player1",
@@ -335,18 +331,7 @@ async fn run_local() -> anyhow::Result<()> {
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
         ),
-        "7" => (
-            Box::new(crate::player::ai::WeightedRandomAI::new(
-                PlayerId::Player1,
-                "WeightedAI1",
-            )),
-            Box::new(crate::player::ai::WeightedRandomAI::new(
-                PlayerId::Player2,
-                "WeightedAI2",
-            )),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        "8" => (
+        "6" => (
             Box::new(crate::player::ai::AlphaBetaAI::new(
                 PlayerId::Player1,
                 "AlphaBeta-Strong-1",
