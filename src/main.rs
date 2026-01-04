@@ -215,6 +215,7 @@ async fn run_local() -> anyhow::Result<()> {
     print!("4. Player vs Minimax AI (Depth 2)\r\n");
     print!("5. Weighted AI vs Weighted AI\r\n");
     print!("6. Minimax AI vs Weighted AI\r\n");
+    print!("7. Player vs Alpha-Beta AI (Strong)\r\n");
 
     let p_choice = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -226,6 +227,7 @@ async fn run_local() -> anyhow::Result<()> {
                     KeyCode::Char('4') => break "4",
                     KeyCode::Char('5') => break "5",
                     KeyCode::Char('6') => break "6",
+                    KeyCode::Char('7') => break "7",
                     KeyCode::Char('q') => return Ok(()),
                     _ => {}
                 }
@@ -271,6 +273,10 @@ async fn run_local() -> anyhow::Result<()> {
                 PlayerId::Player2,
                 "Weighted2",
             )),
+            "7" => Box::new(crate::player::ai::AlphaBetaAI::new(
+                PlayerId::Player2,
+                "ProAI",
+            )),
             _ => Box::new(crate::player::TuiController::new(
                 PlayerId::Player2,
                 "Opponent",
@@ -279,7 +285,7 @@ async fn run_local() -> anyhow::Result<()> {
 
         let perspective = match p_choice {
             "1" => PerspectiveMode::AutoFlip,
-            "2" | "3" | "4" => PerspectiveMode::Fixed(PlayerId::Player1),
+            "2" | "3" | "4" | "7" => PerspectiveMode::Fixed(PlayerId::Player1),
             "5" | "6" => PerspectiveMode::Fixed(PlayerId::Player1),
             _ => unreachable!(),
         };
