@@ -73,6 +73,7 @@ async fn run_menu() -> anyhow::Result<()> {
     print!("1. Local Play\r\n");
     print!("2. Start Server\r\n");
     print!("3. Connect to Server\r\n");
+print!("4. Self-Play (Batch AI vs AI)\r\n");
 
     let mode = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -80,6 +81,7 @@ async fn run_menu() -> anyhow::Result<()> {
                 match key.code {
                     KeyCode::Char('1') => break "local",
                     KeyCode::Char('2') => break "server",
+                    KeyCode::Char('4') => break "selfplay",
                     KeyCode::Char('3') => break "client",
                     KeyCode::Char('q') => return Ok(()),
                     _ => {}
@@ -121,6 +123,7 @@ async fn run_menu() -> anyhow::Result<()> {
             let addr = read_input_raw("127.0.0.1:8080", "Enter server address to connect").await?;
             run_client(&addr).await
         }
+        "selfplay" => run_selfplay().await,
         _ => run_local().await,
     }
 }
@@ -537,4 +540,103 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
             }
         }
     }
+}
+async fn run_selfplay() -> anyhow::Result<()> {
+    use crossterm::event::{self, Event, KeyCode};
+    use std::time::Duration;
+
+    // Configuration UI
+    execute!(
+        std::io::stdout(),
+        terminal::Clear(terminal::ClearType::All),
+        crossterm::cursor::MoveTo(0, 0)
+    )?;
+
+    print!("=== Self-Play Configuration ===\r\n\r\n");
+
+    // Number of games
+    print!("Number of games (default: 10): ");
+    let mut num_input = String::new();
+    loop {
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Enter => break,
+                    KeyCode::Char(c) if c.is_ascii_digit() => {
+                        num_input.push(c);
+                        print!("{}", c);
+                    }
+                    KeyCode::Backspace => {
+                        if !num_input.is_empty() {
+                            num_input.pop();
+                            print!("\u{0008} \u{0008}");
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    let num_games = if num_input.is_empty() {
+        10
+    } else {
+        num_input.parse().unwrap_or(10)
+    };
+
+    print!("\r\n\r\nRunning {} games...\r\n\r\n", num_games);
+
+    // Run self-play
+    let config = crate::selfplay::SelfPlayConfig {
+        num_games,
+        ai1_strength: crate::player::ai::AIStrength::Strong,
+        ai2_strength: crate::player::ai::AIStrength::Strong,
+        board_setup: crate::selfplay::BoardSetupType::Fair,
+        save_kifus: false,
+    };
+
+    let stats = crate::selfplay::run_selfplay(config)?;
+
+    // Display results
+    print!("\r\n\r\n=== Self-Play Results ===\r\n");
+    print!("Total Games: {}\r\n", stats.total_games);
+    print!(
+        "Player 1 Wins: {} ({:.1}%)\r\n",
+        stats.p1_wins,
+        stats.p1_wins as f64 / stats.total_games as f64 * 100.0
+    );
+    print!(
+        "Player 2 Wins: {} ({:.1}%)\r\n",
+        stats.p2_wins,
+        stats.p2_wins as f64 / stats.total_games as f64 * 100.0
+    );
+    print!(
+        "Draws: {} ({:.1}%)\r\n",
+        stats.draws,
+        stats.draws as f64 / stats.total_games as f64 * 100.0
+    );
+    print!("Average Moves: {:.1}\r\n", stats.avg_moves);
+    print!(
+        "Average Time: {:.1}s per game\r\n",
+        stats.avg_time_ms / 1000.0
+    );
+
+    // Save results to JSON
+    let results_file = format!(
+        "selfplay_results_{}.json",
+        chrono::Local::now().format("%Y%m%d_%H%M%S")
+    );
+    let file = std::fs::File::create(&results_file)?;
+    serde_json::to_writer_pretty(file, &stats)?;
+    print!("\r\nResults saved to {}\r\n", results_file);
+
+    print!("\r\nPress any key to return to menu...\r\n");
+    loop {
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(_) = event::read()? {
+                break;
+            }
+        }
+    }
+
+    Ok(())
 }
