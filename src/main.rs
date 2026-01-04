@@ -556,6 +556,8 @@ async fn run_selfplay() -> anyhow::Result<()> {
 
     // Number of games
     print!("Number of games (default: 10): ");
+    std::io::Write::flush(&mut std::io::stdout())?;
+
     let mut num_input = String::new();
     loop {
         if event::poll(Duration::from_millis(100))? {
@@ -565,11 +567,13 @@ async fn run_selfplay() -> anyhow::Result<()> {
                     KeyCode::Char(c) if c.is_ascii_digit() => {
                         num_input.push(c);
                         print!("{}", c);
+                        std::io::Write::flush(&mut std::io::stdout())?;
                     }
                     KeyCode::Backspace => {
                         if !num_input.is_empty() {
                             num_input.pop();
                             print!("\u{0008} \u{0008}");
+                            std::io::Write::flush(&mut std::io::stdout())?;
                         }
                     }
                     _ => {}
