@@ -463,33 +463,45 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
     use std::fs;
     use std::time::Duration;
 
-    // Ensure dir exists
-    if fs::metadata(dir).is_err() {
-        return Ok(None);
+    // Collect files from both directories with labels
+    let mut files_with_labels: Vec<(String, std::path::PathBuf)> = Vec::new();
+    
+    // Add regular kifu files
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                    files_with_labels.push((format!("[Game] {}", name), path));
+                }
+            }
+        }
     }
-
-    let mut files = Vec::new();
-    for entry in fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) == Some("json") {
-            files.push(path);
+    
+    // Add self-play kifu files
+    let selfplay_dir = "selfplay_kifu";
+    if let Ok(entries) = fs::read_dir(selfplay_dir) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                    files_with_labels.push((format!("[AI vs AI] {}", name), path));
+                }
+            }
         }
     }
 
     // Sort by modified time (descending)
-    files.sort_by_key(|p| {
+    files_with_labels.sort_by_key(|(_, p)| {
         fs::metadata(p)
             .and_then(|m| m.modified())
             .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
     });
-    files.reverse();
+    files_with_labels.reverse();
 
-    if files.is_empty() {
-        print!(
-            "No kifu files found in '{}'. Press any key to return.\r\n",
-            dir
-        );
+    if files_with_labels.is_empty() {
+        print!("No kifu files found. Press any key to return.
+");
         loop {
             if event::poll(Duration::from_millis(100))? {
                 if let Event::Key(_) = event::read()? {
@@ -508,33 +520,36 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
             terminal::Clear(terminal::ClearType::All),
             crossterm::cursor::MoveTo(0, 0)
         )?;
-        print!("Select Kifu to Replay (Arrow Keys / Enter / q):\r\n");
-        print!("------------------------------------------------\r\n");
+        print!("Select Kifu to Replay (↑/↓ or j/k / Enter / q):
+");
+        print!("------------------------------------------------
+");
 
-        for (i, file) in files.iter().enumerate() {
-            let name = file.file_name().and_then(|s| s.to_str()).unwrap_or("???");
+        for (i, (label, _)) in files_with_labels.iter().enumerate() {
             if i == selected_index {
-                print!("> {}\r\n", name);
+                print!("> {}
+", label);
             } else {
-                print!("  {}\r\n", name);
+                print!("  {}
+", label);
             }
         }
 
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
                 match key.code {
-                    KeyCode::Up => {
+                    KeyCode::Up | KeyCode::Char('k') => {
                         if selected_index > 0 {
                             selected_index -= 1;
                         }
                     }
-                    KeyCode::Down => {
-                        if selected_index < files.len() - 1 {
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        if selected_index < files_with_labels.len() - 1 {
                             selected_index += 1;
                         }
                     }
                     KeyCode::Enter => {
-                        return Ok(Some(files[selected_index].clone()));
+                        return Ok(Some(files_with_labels[selected_index].1.clone()));
                     }
                     KeyCode::Char('q') | KeyCode::Esc => {
                         return Ok(None);
