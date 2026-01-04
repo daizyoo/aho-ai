@@ -169,26 +169,41 @@ impl Game {
         let _ = std::io::stdin().read_line(&mut input);
 
         if input.trim().eq_ignore_ascii_case("y") {
-            let default_name = "kifu.json";
+            // Create kifu directory if it doesn't exist
+            let kifu_dir = "kifu";
+            if let Err(e) = std::fs::create_dir_all(kifu_dir) {
+                println!("Failed to create kifu directory: {}", e);
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                return;
+            }
+
+            let default_name = "game.json";
             print!("Filename (default: {}) > ", default_name);
             let _ = std::io::stdout().flush();
 
             let mut filename_input = String::new();
             let _ = std::io::stdin().read_line(&mut filename_input);
-            let filename = filename_input.trim();
-            let filename = if filename.is_empty() {
-                default_name
-            } else {
-                filename
-            };
+            let mut filename = filename_input.trim().to_string();
 
-            match std::fs::File::create(filename) {
+            if filename.is_empty() {
+                filename = default_name.to_string();
+            }
+
+            // Ensure .json extension
+            if !filename.ends_with(".json") {
+                filename.push_str(".json");
+            }
+
+            // Save to kifu directory
+            let filepath = std::path::Path::new(kifu_dir).join(&filename);
+
+            match std::fs::File::create(&filepath) {
                 Ok(file) => {
                     // Minified JSON (not pretty) to keep it lightweight
                     if let Err(e) = serde_json::to_writer(file, &self.history) {
                         println!("Failed to write kifu: {}", e);
                     } else {
-                        println!("Kifu saved to {}", filename);
+                        println!("Kifu saved to {}", filepath.display());
                     }
                 }
                 Err(e) => println!("Failed to create file: {}", e),
