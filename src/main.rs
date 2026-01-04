@@ -73,9 +73,8 @@ async fn run_menu() -> anyhow::Result<()> {
     print!("\r\nSelect mode:\r\n");
     print!("1. Local Play\r\n");
     print!("2. Start Server\r\n");
-    print!("5. Replay Self-Play Kifu\r\n");
     print!("4. Self-Play (Batch AI vs AI)\r\n");
-    print!("5. Replay Self-Play Kifu\r\n");
+    print!("3. Connect to Server\r\n");
 
     let mode = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -84,7 +83,6 @@ async fn run_menu() -> anyhow::Result<()> {
                     KeyCode::Char('1') => break "local",
                     KeyCode::Char('2') => break "server",
                     KeyCode::Char('4') => break "selfplay",
-                    KeyCode::Char('5') => break "replay",
                     KeyCode::Char('3') => break "client",
                     KeyCode::Char('q') => return Ok(()),
                     _ => {}
@@ -127,7 +125,6 @@ async fn run_menu() -> anyhow::Result<()> {
             run_client(&addr).await
         }
         "selfplay" => run_selfplay().await,
-        "replay" => replay_selector::run_replay_selector().await,
         _ => run_local().await,
     }
 }
