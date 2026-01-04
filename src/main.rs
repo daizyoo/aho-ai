@@ -682,7 +682,7 @@ async fn run_selfplay() -> anyhow::Result<()> {
         ai1_strength,
         ai2_strength,
         board_setup,
-        save_kifus: false,
+        save_kifus: true,
     };
 
     let stats = crate::selfplay::run_selfplay(config)?;
