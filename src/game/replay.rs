@@ -67,6 +67,7 @@ impl ReplayViewer {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_initial_board(history: Vec<Move>, initial_board: Board) -> Self {
         let mut boards = Vec::new();
         let mut board = initial_board;
@@ -87,10 +88,10 @@ impl ReplayViewer {
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
-        let mut current_player = PlayerId::Player1; // Tracks who moved to reach CURRENT state (approx)
-                                                    // Actually, state[0] is initial. state[1] is after P1 move.
-                                                    // So at index i, the next move is by P1 if i is even, P2 if i is odd.
-                                                    // (Assuming P1 starts).
+        let _current_player = PlayerId::Player1; // Tracks who moved to reach CURRENT state (approx)
+                                                 // Actually, state[0] is initial. state[1] is after P1 move.
+                                                 // So at index i, the next move is by P1 if i is even, P2 if i is odd.
+                                                 // (Assuming P1 starts).
 
         loop {
             // Render
