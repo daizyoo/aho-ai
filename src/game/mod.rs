@@ -89,7 +89,21 @@ impl Game {
                     self.current_player, check_msg
                 ));
                 crate::display::render_board(&self.board, &state);
-                std::thread::sleep(std::time::Duration::from_millis(600));
+
+                // 思考ウェイト中に終了判定
+                let timeout = std::time::Duration::from_millis(600);
+                if crossterm::event::poll(timeout).unwrap_or(false) {
+                    if let crossterm::event::Event::Key(key) =
+                        crossterm::event::read().unwrap_or(crossterm::event::Event::Key(
+                            crossterm::event::KeyEvent::from(crossterm::event::KeyCode::Null),
+                        ))
+                    {
+                        if key.code == crossterm::event::KeyCode::Char('q') {
+                            println!("Interrupted by user.");
+                            break;
+                        }
+                    }
+                }
             }
 
             if let Some(mv) = controller.choose_move(&self.board, &moves) {

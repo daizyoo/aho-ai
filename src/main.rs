@@ -245,11 +245,11 @@ async fn run_local() -> anyhow::Result<()> {
         let p1: Box<dyn PlayerController> = match p_choice {
             "5" => Box::new(crate::player::ai::WeightedRandomAI::new(
                 PlayerId::Player1,
-                "Weighted1",
+                "WeightedAI1",
             )),
             "6" => Box::new(crate::player::ai::MinimaxAI::new(
                 PlayerId::Player1,
-                "Minimax1",
+                "MinimaxAI1",
             )),
             "8" => Box::new(crate::player::ai::AlphaBetaAI::new(
                 PlayerId::Player1,
