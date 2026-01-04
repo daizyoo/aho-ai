@@ -10,7 +10,6 @@ impl Evaluator {
     const VAL_BISHOP: i32 = 800;
 
     const VAL_GOLD: i32 = 600;
-    const VAL_PRO_PIECE: i32 = 600; // 成銀などの金相当
     const VAL_SILVER: i32 = 500;
     const VAL_KNIGHT: i32 = 400;
     const VAL_LANCE: i32 = 300;

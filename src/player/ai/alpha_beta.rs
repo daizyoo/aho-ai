@@ -34,13 +34,13 @@ impl AlphaBetaAI {
         let start_time = Instant::now();
 
         let mut best_move = None;
-        let mut alpha = -200000;
-        let mut beta = 200000;
+        let alpha = -200000;
+        let beta = 200000;
 
         let max_depth = 10; // 制限
 
         for depth in 1..=max_depth {
-            let score = self.alpha_beta(board, depth, alpha, beta, true, self.player_id);
+            let _score = self.alpha_beta(board, depth, alpha, beta, true, self.player_id);
 
             // Check time
             if start_time.elapsed() > self.time_limit {
@@ -49,7 +49,7 @@ impl AlphaBetaAI {
 
             // Get best move from TT for this depth
             let hash = ZobristHasher::compute_hash(board, self.player_id);
-            if let Some((entry, mv)) = self.tt.borrow().get(hash) {
+            if let Some((_entry, mv)) = self.tt.borrow().get(hash) {
                 if let Some(m) = mv {
                     best_move = Some(m);
                     // println!("Depth {} score: {} move: {:?}", depth, score, m);
