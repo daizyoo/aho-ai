@@ -150,28 +150,28 @@ pub fn get_chess_setup() -> Vec<&'static str> {
 
 pub fn get_fair_setup() -> Vec<&'static str> {
     vec![
-        "l n s g k cq cb cn cr", // P2 starting line: Shogi Left (0-3), King (4), Chess Right (5-8)
-        ". r . . . . . cb .",    // P2: Shogi Rook (1), Chess Bishop (7)
-        "p p p p p cp cp cp cp", // P2 pawns: Shogi (0-4), Chess (5-8)
+        "l n s g ck cq cb cn cr", // P2 starting line: Shogi Left, King Middle, Chess Right
+        ". r . . . . . cb .",     // P2: Shogi Rook (Col 2), Chess Bishop (Col 8)
+        "p p p p p cp cp cp cp",  // P2 pawns
         ". . . . . . . . .",
         ". . . . . . . . .",
         ". . . . . . . . .",
-        "P P P P P CP CP CP CP", // P1 pawns: Shogi (0-4), Chess (5-8)
-        ". B . . . . . CR .",    // P1: Shogi Bishop (1), Chess Rook (7)
-        "L N S G K CR CN CB CQ", // P1 starting line: Shogi Left (0-3), King (4), Chess Right (5-8)
+        "P P P P P CP CP CP CP",  // P1 pawns
+        ". R . . . . . CB .",     // P1: Shogi Rook (Col 2), Chess Bishop (Col 8)
+        "L N S G CK CQ CB CN CR", // P1 starting line: Shogi Left, King Middle, Chess Right
     ]
 }
 
 pub fn get_reversed_fair_setup() -> Vec<&'static str> {
     vec![
-        "cr cn cb cq ck g s n l", // P2 starting line: Chess Left (0-3), King (4), Shogi Right (5-8)
-        ". cr . . . . . b .",     // P2: Chess Rook (1), Shogi Bishop (7)
-        "cp cp cp cp p p p p p",  // P2 pawns: Chess (0-3), Shogi (4-8)
+        "cr cn cb cq ck g s n l", // P2 starting line: Chess Left, King Middle, Shogi Right
+        ". cb . . . . . r .",     // P2: Chess Bishop (Col 2), Shogi Rook (Col 8)
+        "cp cp cp cp p p p p p",  // P2 pawns
         ". . . . . . . . .",
         ". . . . . . . . .",
         ". . . . . . . . .",
-        "CP CP CP CP P P P P P", // P1 pawns: Chess (0-3), Shogi (4-8)
-        ". CB . . . . . R .",    // P1: Chess Bishop (1), Shogi Rook (7)
-        "CR CN CB CQ K G S N L", // P1 starting line: Chess Left (0-3), King (4), Shogi Right (5-8)
+        "CP CP CP CP P P P P P",  // P1 pawns
+        ". CB . . . . . R .",     // P1: Chess Bishop (Col 2), Shogi Rook (Col 8)
+        "CR CN CB CQ CK G S N L", // P1 starting line: Chess Left, King Middle, Shogi Right
     ]
 }
