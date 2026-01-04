@@ -1,12 +1,14 @@
-use crate::core::{Board, Move, PlayerId};
+use crate::core::{Board, Move, PlayerId, Position};
 use crate::display::{render_board, DisplayState};
 use crate::player::PlayerController;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use std::cell::RefCell;
 use std::time::Duration;
 
 pub struct TuiController {
     player_id: PlayerId,
     name: String,
+    last_cursor: RefCell<Option<Position>>,
 }
 
 impl TuiController {
@@ -14,6 +16,7 @@ impl TuiController {
         Self {
             player_id,
             name: name.to_string(),
+            last_cursor: RefCell::new(None),
         }
     }
 }
@@ -33,9 +36,12 @@ impl PlayerController for TuiController {
         state.last_move = board.last_move.clone();
         state.status_msg = Some(format!("{}'s turn ({:?})", self.name, self.player_id));
 
-        // 初期カーソル位置をキングに合わせる
-        if let Some(king_pos) = board.find_king(self.player_id) {
+        // 前回位置があれば復元、なければキングに合わせる
+        if let Some(pos) = *self.last_cursor.borrow() {
+            state.cursor = pos;
+        } else if let Some(king_pos) = board.find_king(self.player_id) {
             state.cursor = king_pos;
+            *self.last_cursor.borrow_mut() = Some(king_pos);
         }
 
         loop {
@@ -64,6 +70,7 @@ impl PlayerController for TuiController {
                                     state.cursor.y += 1;
                                 }
                             }
+                            *self.last_cursor.borrow_mut() = Some(state.cursor);
                         }
                         KeyCode::Down => {
                             if state.perspective == PlayerId::Player1 {
@@ -75,6 +82,7 @@ impl PlayerController for TuiController {
                                     state.cursor.y -= 1;
                                 }
                             }
+                            *self.last_cursor.borrow_mut() = Some(state.cursor);
                         }
                         KeyCode::Left => {
                             if state.hand_mode {
@@ -95,6 +103,7 @@ impl PlayerController for TuiController {
                                         state.cursor.x += 1;
                                     }
                                 }
+                                *self.last_cursor.borrow_mut() = Some(state.cursor);
                             }
                         }
                         KeyCode::Right => {
@@ -115,6 +124,7 @@ impl PlayerController for TuiController {
                                         state.cursor.x -= 1;
                                     }
                                 }
+                                *self.last_cursor.borrow_mut() = Some(state.cursor);
                             }
                         }
                         KeyCode::Char('p') => {
