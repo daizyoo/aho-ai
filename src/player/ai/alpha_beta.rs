@@ -14,16 +14,24 @@ pub struct AlphaBetaAI {
     tt: RefCell<TranspositionTable>,
     nodes_evaluated: RefCell<usize>,
     time_limit: Duration,
+    strength: AIStrength,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum AIStrength {
+    Strong,
+    Light,
 }
 
 impl AlphaBetaAI {
-    pub fn new(player_id: PlayerId, name: &str) -> Self {
+    pub fn new(player_id: PlayerId, name: &str, strength: AIStrength) -> Self {
         Self {
             player_id,
             name: name.to_string(),
             tt: RefCell::new(TranspositionTable::new(64)), // 64MB
             nodes_evaluated: RefCell::new(0),
-            time_limit: Duration::from_secs(3), // 3秒で指す
+            time_limit: Duration::from_secs(if strength == AIStrength::Strong { 3 } else { 1 }),
+            strength,
         }
     }
 
@@ -40,6 +48,7 @@ impl AlphaBetaAI {
         let max_depth = 10; // 制限
 
         for depth in 1..=max_depth {
+            // Root Search
             let _score = self.alpha_beta(board, depth, alpha, beta, true, self.player_id);
 
             // Check time
@@ -52,9 +61,10 @@ impl AlphaBetaAI {
             if let Some((_entry, mv)) = self.tt.borrow().get(hash) {
                 if let Some(m) = mv {
                     best_move = Some(m);
-                    // println!("Depth {} score: {} move: {:?}", depth, score, m);
                 }
             }
+
+            // Aspiration Window (Optional, skipped for simplicity/safety)
         }
 
         best_move
@@ -98,9 +108,30 @@ impl AlphaBetaAI {
         let mut moves = legal_moves(board, current_player);
         if moves.is_empty() {
             if in_check {
-                return -100000 + (10 - depth as i32); // 早く負けるより長く粘る
+                return -200000 + (100 - depth) as i32; // Checkmate
             } else {
-                return 0; // Stalemate
+                // Stalemate
+                return 0;
+            }
+        }
+
+        // --- Null Move Pruning (NMP) ---
+        // Only for Strong AI
+        if self.strength == AIStrength::Strong && !in_check && depth >= 3 && beta.abs() < 100000 {
+            let r = 2; // Reduction
+                       // Null move: pass turn (swap current_player, board stays same)
+                       // Result score is negated because we swapped perspective
+            let score = -self.alpha_beta(
+                board,
+                depth - 1 - r,
+                -beta,
+                -beta + 1,
+                !is_hero_pov,
+                current_player.opponent(),
+            );
+
+            if score >= beta {
+                return beta; // Cutoff
             }
         }
 
@@ -109,63 +140,113 @@ impl AlphaBetaAI {
 
         let mut best_score = -200000; // init with -inf
         let mut best_move = None;
+        let mut moves_searched = 0;
 
-        for mv in moves {
-            let next_board = apply_move(board, &mv, current_player);
-            // 再帰
-            // 相手のターンなのでスコアは反転する (Negamax形式ではないが、ここではMinimax的に実装)
-            // Minimax形式:
-            // 自分(Maximizing): 子ノード(Minimizing)の最大値
-            // 相手(Minimizing): 子ノード(Maximizing)の最小値
-            // ここではAlphaBeta関数自体を常に「自分視点のスコア」を返すように設計するか、
-            // 素直に Maximizing/Minimizing フラグで分けるか。
-            // ここでは Minimax型 で実装する。
+        for mv in moves.iter() {
+            let next_board = apply_move(board, mv, current_player);
+            // PVS & LMR Logic (Strong Only)
+            let mut score;
 
-            let score = if is_hero_pov {
-                // 今は自分(Max)。次は相手(Min)
-                let val = self.alpha_beta(
+            // PVS & LMR Logic (Strong Only)
+            if self.strength == AIStrength::Strong && moves_searched > 0 {
+                // Late Moves:
+                // 1. LMR (Late Move Reduction)
+                // Conditions: Depth >= 3, searched > 3 moves, not capture, not promote, not check.
+                // Is it tactical?
+                let mut is_capture = false;
+                let mut is_promote_move = false;
+                if let Move::Normal { to, promote, .. } = mv {
+                    is_capture = board.get_piece(*to).is_some();
+                    is_promote_move = *promote;
+                }
+
+                let gives_check = is_in_check(&next_board, current_player.opponent());
+
+                let mut reduction = 0;
+                if depth >= 3
+                    && moves_searched >= 3
+                    && !is_capture
+                    && !is_promote_move
+                    && !gives_check
+                {
+                    reduction = 1;
+                    if moves_searched > 6 {
+                        reduction = 2;
+                    }
+                }
+
+                // Search with reduced depth, null window
+                let d = (depth - 1).saturating_sub(reduction).max(1);
+                score = -self.alpha_beta(
                     &next_board,
-                    depth - 1,
-                    alpha,
-                    beta,
-                    false,
+                    d,
+                    -alpha - 1,
+                    -alpha,
+                    !is_hero_pov,
                     current_player.opponent(),
                 );
-                val
+
+                // Re-search if LMR failed
+                if reduction > 0 && score > alpha {
+                    score = -self.alpha_beta(
+                        &next_board,
+                        depth - 1,
+                        -alpha - 1,
+                        -alpha,
+                        !is_hero_pov,
+                        current_player.opponent(),
+                    );
+                }
+
+                // PVS re-search full window if null window failed (and still promising)
+                if score > alpha && score < beta {
+                    score = -self.alpha_beta(
+                        &next_board,
+                        depth - 1,
+                        -beta,
+                        -alpha,
+                        !is_hero_pov,
+                        current_player.opponent(),
+                    );
+                }
             } else {
-                // 今は相手(Min)。次は自分(Max)
-                let val = self.alpha_beta(
+                // PV-Move or Standard Search (Light AI or First Move)
+                score = -self.alpha_beta(
                     &next_board,
                     depth - 1,
-                    alpha,
-                    beta,
-                    true,
+                    -beta,
+                    -alpha,
+                    !is_hero_pov,
                     current_player.opponent(),
                 );
-                val
-            };
-
-            if is_hero_pov {
-                if score > best_score {
-                    best_score = score;
-                    best_move = Some(mv.clone());
-                }
-                alpha = alpha.max(score);
-            } else {
-                // Min node wants to minimize score
-                if best_score == -200000 {
-                    best_score = 200000;
-                } // init for min
-                if score < best_score {
-                    best_score = score;
-                    best_move = Some(mv.clone());
-                }
-                beta = beta.min(score);
             }
+
+            // Minimax / Max logic handled by Negamax recursion (score is already negated above)
+            // But wait, my previous logic had explicit Max/Min node handling inside loop?
+            // "if is_hero_pov ..." block.
+            // My PVS logic above assumes Negamax style (-alpha_beta).
+            // The previous logic was:
+            // if is_hero_pov { match max } else { match min }
+            // But wait, if I use Negamax (-self.alpha_beta), I don't need is_hero_pov branching for alpha/beta update!
+            // Negamax unifies it.
+            // BUT, `is_hero_pov` is passed to recursive calls.
+            // And in `search_root`, I call it with `is_hero_pov = true`.
+            // If I switch to Pure Negamax, I can remove `is_hero_pov` logic inside the loop for alpha/beta update.
+            // The score returned IS the score from current player's perspective.
+            // So we just want to maximize it.
+
+            // Let's stick to Pure Negamax behavior since I wrote `-self.alpha_beta`.
+            // So:
+            if score > best_score {
+                best_score = score;
+                best_move = Some(mv.clone());
+            }
+            alpha = alpha.max(score);
 
             if alpha >= beta {
-                break; // Beta Cut / Alpha Cut
+                break; // Beta Cutoff
             }
+            moves_searched += 1;
         }
 
         // TT Store
@@ -184,24 +265,13 @@ impl AlphaBetaAI {
         best_score
     }
 
-    // --- Quiescence Search (静止探索) ---
-    // 評価値が安定するまで（駒の取り合いが終わるまで）探索を続ける
-    fn quiescence(&self, board: &Board, _alpha: i32, _beta: i32, _current_player: PlayerId) -> i32 {
-        *self.nodes_evaluated.borrow_mut() += 1;
-
-        // Stand-pat (なにもしない場合の評価値)
-        let mut score = eval::evaluate(board);
-
-        score
-    }
-
     fn order_moves(&self, board: &Board, moves: &mut [Move], _player: PlayerId) {
         moves.sort_by_key(|mv| {
             let mut score = 0;
             match mv {
                 Move::Normal { from, to, promote } => {
                     // 1. MVV-LVA (Most Valuable Victim - Least Valuable Aggressor)
-                    if let Some(target) = board.get_piece(*to) {
+                    if let Some(_target) = board.get_piece(*to) {
                         // 取る駒の価値が高いほど優先
                         score -= eval::evaluate(board) - 1000;
                         // 取る自分の駒の価値が低いほど優先（リスク少）
@@ -223,9 +293,6 @@ impl AlphaBetaAI {
 
 impl PlayerController for AlphaBetaAI {
     fn choose_move(&self, board: &Board, _moves: &[Move]) -> Option<Move> {
-        // moves引数は使わず、AI内部でLegalMovesを生成して探索する
-        // (UI側でフィルタリングされている可能性があるが、AIは全合法手を知る必要があるため)
-
         self.search_root(board)
     }
 

@@ -214,9 +214,11 @@ async fn run_local() -> anyhow::Result<()> {
     print!("3. Player vs Weighted Random AI\r\n");
     print!("4. Player vs Minimax AI (Depth 2)\r\n");
     print!("5. Weighted AI vs Weighted AI\r\n");
-    print!("7. Player vs Alpha-Beta AI (Strong)\r\n");
-    print!("8. Alpha-Beta AI vs Alpha-Beta AI (Strong)\r\n");
-    print!("9. Replay Game Record (Kifu)\r\n");
+    println!("7. Player vs Alpha-Beta AI (Light)");
+    println!("8. Player vs Alpha-Beta AI (Strong)");
+    println!("9. Alpha-Beta AI (Strong) vs Alpha-Beta AI (Strong)");
+    println!("10. Replay Game Record (Kifu)");
+    print!("\r\n");
 
     let p_choice = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -231,6 +233,7 @@ async fn run_local() -> anyhow::Result<()> {
                     KeyCode::Char('7') => break "7",
                     KeyCode::Char('8') => break "8",
                     KeyCode::Char('9') => break "9",
+                    KeyCode::Char('0') => break "10", // For option 10
                     KeyCode::Char('q') => return Ok(()),
                     _ => {}
                 }
@@ -238,95 +241,143 @@ async fn run_local() -> anyhow::Result<()> {
         }
     };
 
-    if p_choice == "9" {
-        // Replay Mode
-        let kifu_dir = "kifu";
-        // Create dir if not exists (just in case, though usually for saving)
-        if std::fs::read_dir(kifu_dir).is_err() {
-            std::fs::create_dir_all(kifu_dir)?;
-        }
-
-        if let Some(path) = select_kifu_file(kifu_dir)? {
-            let file = std::fs::File::open(path)?;
-            let history: Vec<crate::core::Move> = serde_json::from_reader(file)?;
-
-            execute!(io::stdout(), terminal::EnterAlternateScreen)?;
-            // Note: Viewer expects AlternateScreen. main loop already did EnterAlternateScreen,
-            // but if we left it (we didn't leave it in this new code path), we are good.
-            // Wait, run_local enters AlternateScreen.
-            // So we are already in AlternateScreen.
-            // The old code left it to ask input. We are NOT leaving it.
-            // select_kifu_file uses TUI, so it needs AlternateScreen.
-            // So we are good.
-
-            let mut viewer = crate::game::replay::ReplayViewer::new(history);
-            viewer.run()?;
-        }
-
-        return Ok(());
-    }
-
-    let (p1, p2, perspective): (
+    let (mut p1, mut p2, perspective): (
         Box<dyn PlayerController>,
         Box<dyn PlayerController>,
         PerspectiveMode,
-    ) = {
-        let p1: Box<dyn PlayerController> = match p_choice {
-            "5" => Box::new(crate::player::ai::WeightedRandomAI::new(
+    ) = match p_choice {
+        "1" => (
+            Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
-                "WeightedAI1",
+                "Player1",
             )),
-            "6" => Box::new(crate::player::ai::MinimaxAI::new(
-                PlayerId::Player1,
-                "MinimaxAI1",
-            )),
-            "8" => Box::new(crate::player::ai::AlphaBetaAI::new(
-                PlayerId::Player1,
-                "ProAI1",
-            )),
-            _ => Box::new(crate::player::TuiController::new(PlayerId::Player1, "You")),
-        };
-
-        let p2: Box<dyn PlayerController> = match p_choice {
-            "1" => Box::new(crate::player::TuiController::new(
+            Box::new(crate::player::TuiController::new(
                 PlayerId::Player2,
-                "Opponent",
+                "Player2",
             )),
-            "2" => Box::new(crate::player::ai::RandomAI::new(
-                PlayerId::Player2,
-                "RandomAI",
+            PerspectiveMode::AutoFlip,
+        ),
+        "2" => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
             )),
-            "3" => Box::new(crate::player::ai::WeightedRandomAI::new(
+            Box::new(crate::player::ai::WeightedRandomAI::new(
                 PlayerId::Player2,
                 "WeightedAI",
             )),
-            "4" | "6" => Box::new(crate::player::ai::MinimaxAI::new(
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        "3" => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
+            )),
+            Box::new(crate::player::ai::WeightedRandomAI::new(
+                PlayerId::Player2,
+                "WeightedAI",
+            )),
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        "4" => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
+            )),
+            Box::new(crate::player::ai::MinimaxAI::new(
                 PlayerId::Player2,
                 "MinimaxAI",
             )),
-            "5" => Box::new(crate::player::ai::WeightedRandomAI::new(
-                PlayerId::Player2,
-                "Weighted2",
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        "5" => (
+            Box::new(crate::player::ai::WeightedRandomAI::new(
+                PlayerId::Player1,
+                "WeightedAI1",
             )),
-            "7" | "8" => Box::new(crate::player::ai::AlphaBetaAI::new(
+            Box::new(crate::player::ai::WeightedRandomAI::new(
                 PlayerId::Player2,
-                "ProAI2",
+                "WeightedAI2",
             )),
-            _ => Box::new(crate::player::TuiController::new(
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        "7" => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
+            )),
+            Box::new(crate::player::ai::AlphaBetaAI::new(
                 PlayerId::Player2,
-                "Opponent",
+                "AlphaBeta-Light",
+                crate::player::ai::AIStrength::Light,
             )),
-        };
-
-        let perspective = match p_choice {
-            "1" => PerspectiveMode::AutoFlip,
-            "2" | "3" | "4" | "7" => PerspectiveMode::Fixed(PlayerId::Player1),
-            "5" | "6" | "8" => PerspectiveMode::Fixed(PlayerId::Player1),
-            _ => unreachable!(),
-        };
-
-        (p1, p2, perspective)
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        "8" => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
+            )),
+            Box::new(crate::player::ai::AlphaBetaAI::new(
+                PlayerId::Player2,
+                "AlphaBeta-Strong",
+                crate::player::ai::AIStrength::Strong,
+            )),
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        "9" => (
+            Box::new(crate::player::ai::AlphaBetaAI::new(
+                PlayerId::Player1,
+                "AlphaBeta-Strong-1",
+                crate::player::ai::AIStrength::Strong,
+            )),
+            Box::new(crate::player::ai::AlphaBetaAI::new(
+                PlayerId::Player2,
+                "AlphaBeta-Strong-2",
+                crate::player::ai::AIStrength::Strong,
+            )),
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        "10" => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
+            )),
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player2,
+                "Player2",
+            )),
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        _ => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
+            )),
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player2,
+                "Player2",
+            )),
+            PerspectiveMode::AutoFlip,
+        ),
     };
+    // This line was part of the original code's structure, but the new block
+    // already returns the tuple directly from the match statement.
+    // Removing it to avoid a syntax error.
+    // (p1, p2, perspective)
+    // The match statement now directly assigns to (p1, p2, perspective)
+    // so this line is no longer needed.
+    // The original code had `let (mut p1, mut p2, perspective) = { ... };`
+    // where the block returned the tuple.
+    // The new code has `let (mut p1, mut p2, perspective) = match p_choice { ... };`
+    // where each match arm returns the tuple.
+    // So the final `(p1, p2, perspective)` is not needed.
+    // The instruction provided `(p1, p2, perspective)` at the end, which would be a syntax error.
+    // I will remove it to make the code syntactically correct.
+    // The instruction also had an extra `}` at the end of the `let` assignment, which I've corrected.
+    // The instruction's provided code block ends with `};` which is correct for the `let = match` syntax.
+    // The instruction's provided code block also had `(p1, p2, perspective)` after the closing `};`
+    // which is incorrect. I will remove that.
 
     print!("\r\nSelect board setup:\r\n");
     print!("1. Shogi (P1) vs Chess (P2)\r\n");
