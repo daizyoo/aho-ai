@@ -11,8 +11,28 @@ pub struct NetworkClient {
 
 impl NetworkClient {
     pub async fn connect(addr: &str) -> anyhow::Result<Self> {
-        let stream = TcpStream::connect(addr).await?;
+        let sanitized = Self::sanitize_addr(addr);
+        let stream = TcpStream::connect(&sanitized).await?;
         Ok(Self { stream })
+    }
+
+    fn sanitize_addr(addr: &str) -> String {
+        let mut s = addr.to_string();
+        // Strip protocol
+        if s.starts_with("http://") {
+            s = s.replace("http://", "");
+        } else if s.starts_with("https://") {
+            s = s.replace("https://", "");
+        }
+        // Remove trailing slash if any
+        if s.ends_with("/") {
+            s.pop();
+        }
+        // Default port if missing
+        if !s.contains(":") {
+            s.push_str(":8080");
+        }
+        s
     }
 
     pub async fn run(
