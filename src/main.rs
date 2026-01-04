@@ -256,6 +256,8 @@ async fn run_local() -> anyhow::Result<()> {
     print!("2. Chess (P1) vs Shogi (P2)\r\n");
     print!("3. Shogi vs Shogi\r\n");
     print!("4. Chess vs Chess\r\n");
+    print!("5. Fair (Mixed Shogi/Chess)\r\n");
+    print!("6. Reversed Fair\r\n");
 
     let b_choice = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -265,6 +267,8 @@ async fn run_local() -> anyhow::Result<()> {
                     KeyCode::Char('2') => break "2",
                     KeyCode::Char('3') => break "3",
                     KeyCode::Char('4') => break "4",
+                    KeyCode::Char('5') => break "5",
+                    KeyCode::Char('6') => break "6",
                     KeyCode::Char('q') => return Ok(()),
                     _ => {}
                 }
@@ -272,26 +276,15 @@ async fn run_local() -> anyhow::Result<()> {
         }
     };
 
-    let (p1_shogi, p2_shogi) = match b_choice {
-        "1" => (true, false),
-        "2" => (false, true),
-        "3" => (true, true),
-        _ => (false, false),
-    };
-
+    // p1_shogi / p2_shogi determine piece parsing when 1-char symbols are used
+    // in fair setup, both are used, so we just set them based on majority or just true/false
     let board = match b_choice {
-        "1" => setup_from_strings(
-            &crate::core::setup::get_standard_mixed_setup(),
-            p1_shogi,
-            p2_shogi,
-        ),
-        "2" => setup_from_strings(
-            &crate::core::setup::get_reversed_mixed_setup(),
-            p1_shogi,
-            p2_shogi,
-        ),
-        "3" => setup_from_strings(&crate::core::setup::get_shogi_setup(), p1_shogi, p2_shogi),
-        _ => setup_from_strings(&crate::core::setup::get_chess_setup(), p1_shogi, p2_shogi),
+        "1" => setup_from_strings(&crate::core::setup::get_standard_mixed_setup(), true, false),
+        "2" => setup_from_strings(&crate::core::setup::get_reversed_mixed_setup(), false, true),
+        "3" => setup_from_strings(&crate::core::setup::get_shogi_setup(), true, true),
+        "4" => setup_from_strings(&crate::core::setup::get_chess_setup(), false, false),
+        "5" => setup_from_strings(&crate::core::setup::get_fair_setup(), true, false), // Hint: P1=S, P2=C
+        _ => setup_from_strings(&crate::core::setup::get_reversed_fair_setup(), false, true), // Hint: P1=C, P2=S
     };
 
     let mut game = Game::new(board);

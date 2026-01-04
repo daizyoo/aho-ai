@@ -147,3 +147,31 @@ pub fn get_chess_setup() -> Vec<&'static str> {
         "CR CN CB CQ CK CQ CB CN CR",
     ]
 }
+
+pub fn get_fair_setup() -> Vec<&'static str> {
+    vec![
+        "cr cn cb cq ck G S N L",
+        ". . . . . . . R .",
+        "cp cp cp cp P P P P P",
+        ". . . . . . . . .",
+        ". . . . . . . . .",
+        ". . . . . . . . .",
+        "P P P P P cp cp cp cp",
+        ". B . . . . . . .",
+        "L N S G K cq cb cn cr",
+    ]
+}
+
+pub fn get_reversed_fair_setup() -> Vec<&'static str> {
+    vec![
+        "CR CN CB CQ CK g s n l",
+        ". . . . . . . r .",
+        "CP CP CP CP p p p p p",
+        ". . . . . . . . .",
+        ". . . . . . . . .",
+        ". . . . . . . . .",
+        "p p p p p CP CP CP CP",
+        ". b . . . . . . .",
+        "l n s g k CQ CB CN CR",
+    ]
+}
