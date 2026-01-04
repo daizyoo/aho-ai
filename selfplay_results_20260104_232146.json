@@ -1,0 +1,35 @@
+{
+  "total_games": 5,
+  "p1_wins": 5,
+  "p2_wins": 0,
+  "draws": 0,
+  "avg_moves": 39.4,
+  "avg_time_ms": 203981.0,
+  "games": [
+    {
+      "winner": "Player1",
+      "moves": 61,
+      "time_ms": 267466
+    },
+    {
+      "winner": "Player1",
+      "moves": 33,
+      "time_ms": 180962
+    },
+    {
+      "winner": "Player1",
+      "moves": 45,
+      "time_ms": 321757
+    },
+    {
+      "winner": "Player1",
+      "moves": 37,
+      "time_ms": 107383
+    },
+    {
+      "winner": "Player1",
+      "moves": 21,
+      "time_ms": 142337
+    }
+  ]
+}

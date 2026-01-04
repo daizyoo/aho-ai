@@ -716,8 +716,12 @@ async fn run_selfplay() -> anyhow::Result<()> {
     );
 
     // Save results to JSON
+    let results_dir = "selfplay_results";
+    std::fs::create_dir_all(results_dir)?;
+
     let results_file = format!(
-        "selfplay_results_{}.json",
+        "{}/selfplay_results_{}.json",
+        results_dir,
         chrono::Local::now().format("%Y%m%d_%H%M%S")
     );
     let file = std::fs::File::create(&results_file)?;
