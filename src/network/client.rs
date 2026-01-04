@@ -12,24 +12,30 @@ pub struct NetworkClient {
 impl NetworkClient {
     pub async fn connect(addr: &str) -> anyhow::Result<Self> {
         let sanitized = Self::sanitize_addr(addr);
-        let stream = TcpStream::connect(&sanitized).await?;
+        // 10秒のタイムアウトを設定
+        let connect_fut = TcpStream::connect(&sanitized);
+        let stream = tokio::time::timeout(std::time::Duration::from_secs(10), connect_fut)
+            .await
+            .map_err(|_| anyhow::anyhow!("Connection timed out: {}", sanitized))??;
+
         Ok(Self { stream })
     }
 
-    fn sanitize_addr(addr: &str) -> String {
-        let mut s = addr.to_string();
-        // Strip protocol
-        if s.starts_with("http://") {
-            s = s.replace("http://", "");
-        } else if s.starts_with("https://") {
-            s = s.replace("https://", "");
+    pub fn sanitize_addr(addr: &str) -> String {
+        let mut s = addr.trim().to_string();
+
+        // プロトコルスキームの除去 (xxx://)
+        if let Some(pos) = s.find("://") {
+            s = s[(pos + 3)..].to_string();
         }
-        // Remove trailing slash if any
-        if s.ends_with("/") {
-            s.pop();
+
+        // 末尾のパスやスラッシュを除去
+        if let Some(pos) = s.find('/') {
+            s.truncate(pos);
         }
-        // Default port if missing
-        if !s.contains(":") {
+
+        // ポート番号の自動付与 (IPv6を考慮せず、単純に ':' が無ければ付与)
+        if !s.contains(':') {
             s.push_str(":8080");
         }
         s

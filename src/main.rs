@@ -132,9 +132,21 @@ async fn run_client(addr: &str) -> anyhow::Result<()> {
     use std::sync::mpsc;
     use tokio::sync::mpsc as tokio_mpsc;
 
-    print!("Connecting to {}...\r\n", addr);
-    let client = NetworkClient::connect(addr).await?;
-    println!("Connected!");
+    let sanitized = NetworkClient::sanitize_addr(addr);
+    print!("Connecting to {}... (Original: {})\r\n", sanitized, addr);
+
+    let client_res = NetworkClient::connect(&sanitized).await;
+    let client = match client_res {
+        Ok(c) => c,
+        Err(e) => {
+            print!("\r\n[!] Connection Failed: {}\r\n", e);
+            print!("    Hint: If using ngrok, try 'ngrok tcp 8080' instead of 'ngrok http'.\r\n");
+            print!("    Wait 5s to return to menu...\r\n");
+            std::thread::sleep(std::time::Duration::from_secs(5));
+            return Err(e);
+        }
+    };
+    print!("Connected!\r\n");
 
     let (player_id_tx, player_id_rx) = mpsc::channel::<PlayerId>();
     let (remote_move_tx, remote_move_rx) = mpsc::channel::<Move>();
