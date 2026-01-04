@@ -251,15 +251,22 @@ async fn run_local() -> anyhow::Result<()> {
             std::fs::create_dir_all(kifu_dir)?;
         }
 
-        if let Some(path) = select_kifu_file(kifu_dir)? {
-            let file = std::fs::File::open(path)?;
-            let kifu_data: crate::game::KifuData = serde_json::from_reader(file)?;
+        // Loop to allow browsing multiple kifus
+        loop {
+            if let Some(path) = select_kifu_file(kifu_dir)? {
+                let file = std::fs::File::open(&path)?;
+                let kifu_data: crate::game::KifuData = serde_json::from_reader(file)?;
 
-            // Viewer uses alternate screen, we are already in it or should ensure it.
-            // (Assuming main entered it)
-            let mut viewer = crate::game::replay::ReplayViewer::new(kifu_data);
-            viewer.run()?;
+                let mut viewer = crate::game::replay::ReplayViewer::new(kifu_data);
+                viewer.run()?;
+                
+                // After replay ends, loop continues to show selection again
+            } else {
+                // User pressed 'q' to quit selection
+                break;
+            }
         }
+
         return Ok(());
     }
 
