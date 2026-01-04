@@ -8,7 +8,6 @@ import json
 from pathlib import Path
 from typing import List, Dict
 from collections import Counter
-import statistics
 
 def load_all_kifus(directory: str) -> List[Dict]:
     """Load all kifu files from directory"""
@@ -20,12 +19,19 @@ def load_all_kifus(directory: str) -> List[Dict]:
     
     kifus = []
     for filepath in sorted(kifu_dir.glob("*.json")):
-        with open(filepath, 'r') as f:
-            data = json.load(f)
-            data['filename'] = filepath.name
-            kifus.append(data)
+        try:
+            with open(filepath, 'r') as f:
+                data = json.load(f)
+                data['filename'] = filepath.name
+                kifus.append(data)
+        except Exception as e:
+            print(f"Warning: Failed to load {filepath.name}: {e}")
     
     return kifus
+
+def calculate_average(values: List[float]) -> float:
+    """Calculate average, handling empty lists"""
+    return sum(values) / len(values) if values else 0.0
 
 def analyze_all_games(kifus: List[Dict]) -> None:
     """Analyze patterns across all games"""
@@ -35,29 +41,35 @@ def analyze_all_games(kifus: List[Dict]) -> None:
     drop_rates = []
     
     for kifu in kifus:
-        moves = kifu['moves']
+        moves = kifu.get('moves', [])
         all_moves.extend(moves)
         game_lengths.append(len(moves))
         
         # Promotion rate
-        promotions = sum(1 for m in moves if 'Normal' in m and m['Normal'].get('promote', False))
+        promotions = sum(1 for m in moves 
+                        if isinstance(m, dict) and 'Normal' in m 
+                        and m['Normal'].get('promote', False))
         promotion_rates.append(promotions / len(moves) * 100 if moves else 0)
         
         # Drop rate
-        drops = sum(1 for m in moves if 'Drop' in m)
+        drops = sum(1 for m in moves if isinstance(m, dict) and 'Drop' in m)
         drop_rates.append(drops / len(moves) * 100 if moves else 0)
+    
+    if not game_lengths:
+        print("No games found!")
+        return
     
     print("=== Aggregate Statistics ===")
     print(f"Total Games Analyzed: {len(kifus)}")
     print(f"Total Moves: {len(all_moves)}")
-    print(f"Average Game Length: {statistics.mean(game_lengths):.1f} moves")
+    print(f"Average Game Length: {calculate_average(game_lengths):.1f} moves")
     print(f"Shortest Game: {min(game_lengths)} moves")
     print(f"Longest Game: {max(game_lengths)} moves")
     print()
     
     print("=== Average Rates ===")
-    print(f"Average Promotion Rate: {statistics.mean(promotion_rates):.1f}%")
-    print(f"Average Drop Rate: {statistics.mean(drop_rates):.1f}%")
+    print(f"Average Promotion Rate: {calculate_average(promotion_rates):.1f}%")
+    print(f"Average Drop Rate: {calculate_average(drop_rates):.1f}%")
     print()
 
 def analyze_piece_usage(kifus: List[Dict]) -> None:
@@ -65,9 +77,13 @@ def analyze_piece_usage(kifus: List[Dict]) -> None:
     dropped_pieces = []
     
     for kifu in kifus:
-        for move in kifu['moves']:
-            if 'Drop' in move:
-                dropped_pieces.append(move['Drop']['piece_kind'])
+        for move in kifu.get('moves', []):
+            if isinstance(move, dict) and 'Drop' in move:
+                drop_data = move['Drop']
+                # Handle both 'piece_kind' and 'kind' field names
+                piece = drop_data.get('piece_kind') or drop_data.get('kind')
+                if piece:
+                    dropped_pieces.append(piece)
     
     if not dropped_pieces:
         print("=== Piece Drop Usage ===")
