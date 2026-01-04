@@ -240,27 +240,28 @@ async fn run_local() -> anyhow::Result<()> {
 
     if p_choice == "9" {
         // Replay Mode
-        execute!(io::stdout(), terminal::LeaveAlternateScreen)?; // Temporarily leave to ask filename
-        let default_name = "kifu.json";
-        print!("Enter kifu filename (default: {}): ", default_name);
-        io::stdout().flush()?;
+        let kifu_dir = "kifu";
+        // Create dir if not exists (just in case, though usually for saving)
+        if std::fs::read_dir(kifu_dir).is_err() {
+            std::fs::create_dir_all(kifu_dir)?;
+        }
 
-        let mut filename_input = String::new();
-        io::stdin().read_line(&mut filename_input)?;
-        let filename = filename_input.trim();
-        let filename = if filename.is_empty() {
-            default_name
-        } else {
-            filename
-        };
+        if let Some(path) = select_kifu_file(kifu_dir)? {
+            let file = std::fs::File::open(path)?;
+            let history: Vec<crate::core::Move> = serde_json::from_reader(file)?;
 
-        // Load JSON
-        let file = std::fs::File::open(filename)?;
-        let history: Vec<crate::core::Move> = serde_json::from_reader(file)?;
+            execute!(io::stdout(), terminal::EnterAlternateScreen)?;
+            // Note: Viewer expects AlternateScreen. main loop already did EnterAlternateScreen,
+            // but if we left it (we didn't leave it in this new code path), we are good.
+            // Wait, run_local enters AlternateScreen.
+            // So we are already in AlternateScreen.
+            // The old code left it to ask input. We are NOT leaving it.
+            // select_kifu_file uses TUI, so it needs AlternateScreen.
+            // So we are good.
 
-        execute!(io::stdout(), terminal::EnterAlternateScreen)?; // Back to alt screen
-        let mut viewer = crate::game::replay::ReplayViewer::new(history);
-        viewer.run()?;
+            let mut viewer = crate::game::replay::ReplayViewer::new(history);
+            viewer.run()?;
+        }
 
         return Ok(());
     }
@@ -405,6 +406,91 @@ async fn read_input_raw(default: &str, prompt: &str) -> anyhow::Result<String> {
                     }
                     KeyCode::Esc => {
                         return Err(anyhow::anyhow!("Canceled"));
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
+fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
+    use crossterm::event::{self, Event, KeyCode};
+    use std::fs;
+    use std::time::Duration;
+
+    // Ensure dir exists
+    if fs::metadata(dir).is_err() {
+        return Ok(None);
+    }
+
+    let mut files = Vec::new();
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            files.push(path);
+        }
+    }
+
+    // Sort by modified time (descending)
+    files.sort_by_key(|p| {
+        fs::metadata(p)
+            .and_then(|m| m.modified())
+            .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+    });
+    files.reverse();
+
+    if files.is_empty() {
+        println!("No kifu files found in '{}'. Press any key to return.", dir);
+        loop {
+            if event::poll(Duration::from_millis(100))? {
+                if let Event::Key(_) = event::read()? {
+                    break;
+                }
+            }
+        }
+        return Ok(None);
+    }
+
+    let mut selected_index = 0;
+
+    loop {
+        execute!(
+            io::stdout(),
+            terminal::Clear(terminal::ClearType::All),
+            crossterm::cursor::MoveTo(0, 0)
+        )?;
+        println!("Select Kifu to Replay (Arrow Keys / Enter / q):");
+        println!("------------------------------------------------");
+
+        for (i, file) in files.iter().enumerate() {
+            let name = file.file_name().and_then(|s| s.to_str()).unwrap_or("???");
+            if i == selected_index {
+                println!("> {}", name);
+            } else {
+                println!("  {}", name);
+            }
+        }
+
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Up => {
+                        if selected_index > 0 {
+                            selected_index -= 1;
+                        }
+                    }
+                    KeyCode::Down => {
+                        if selected_index < files.len() - 1 {
+                            selected_index += 1;
+                        }
+                    }
+                    KeyCode::Enter => {
+                        return Ok(Some(files[selected_index].clone()));
+                    }
+                    KeyCode::Char('q') | KeyCode::Esc => {
+                        return Ok(None);
                     }
                     _ => {}
                 }

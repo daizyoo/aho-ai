@@ -137,14 +137,14 @@ pub fn get_shogi_setup() -> Vec<&'static str> {
 
 pub fn get_chess_setup() -> Vec<&'static str> {
     vec![
-        "cr cn cb cq ck cq cb cn cr",
-        "cp cp cp cp cp cp cp cp cp",
-        ". . . . . . . . .",
-        ". . . . . . . . .",
-        ". . . . . . . . .",
-        ". . . . . . . . .",
-        "CP CP CP CP CP CP CP CP CP",
-        "CR CN CB CQ CK CQ CB CN CR",
+        "cr cn cb cq ck cb cn cr",
+        "cp cp cp cp cp cp cp cp",
+        ". . . . . . . .",
+        ". . . . . . . .",
+        ". . . . . . . .",
+        ". . . . . . . .",
+        "CP CP CP CP CP CP CP CP",
+        "CR CN CB CQ CK CB CN CR",
     ]
 }
 
