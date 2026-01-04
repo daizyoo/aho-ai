@@ -20,14 +20,14 @@ pub struct SelfPlayConfig {
     pub save_kifus: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct GameResult {
     pub winner: Option<PlayerId>,
     pub moves: usize,
     pub time_ms: u128,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SelfPlayStats {
     pub total_games: usize,
     pub p1_wins: usize,
@@ -115,12 +115,18 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
             moves: move_count,
             time_ms: elapsed.as_millis(),
         };
+        stats.add_result(result);
 
-        // Display progress
-        print!(
-            "\rGame {}/{}: {} ({} moves, {:.1}s)",
-            game_num,
-            config.num_games,
+        // Display detailed progress
+        execute!(
+            std::io::stdout(),
+            terminal::Clear(terminal::ClearType::All),
+            crossterm::cursor::MoveTo(0, 0)
+        )?;
+        
+        print!("=== Self-Play Progress ===\r\n\r\n");
+        print!("Game {}/{} completed\r\n", game_num, config.num_games);
+        print!("Result: {} ({} moves, {:.1}s)\r\n\r\n", 
             match winner {
                 Some(PlayerId::Player1) => "P1 wins",
                 Some(PlayerId::Player2) => "P2 wins",
@@ -129,9 +135,24 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
             move_count,
             elapsed.as_secs_f64()
         );
+        
+        print!("--- Current Statistics ---\r\n");
+        print!("P1 Wins: {} ({:.1}%)\r\n", 
+            stats.p1_wins,
+            stats.p1_wins as f64 / stats.total_games as f64 * 100.0
+        );
+        print!("P2 Wins: {} ({:.1}%)\r\n", 
+            stats.p2_wins,
+            stats.p2_wins as f64 / stats.total_games as f64 * 100.0
+        );
+        print!("Draws: {} ({:.1}%)\r\n", 
+            stats.draws,
+            stats.draws as f64 / stats.total_games as f64 * 100.0
+        );
+        print!("Avg Moves: {:.1}\r\n", stats.avg_moves);
+        print!("Avg Time: {:.1}s\r\n\r\n", stats.avg_time_ms / 1000.0);
+        
         std::io::Write::flush(&mut std::io::stdout())?;
-
-        stats.add_result(result);
 
         // Save kifu if requested
         if config.save_kifus {
