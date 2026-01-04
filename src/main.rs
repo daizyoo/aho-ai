@@ -478,7 +478,7 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
     files.reverse();
 
     if files.is_empty() {
-        println!("No kifu files found in '{}'. Press any key to return.", dir);
+        print!("No kifu files found in '{}'. Press any key to return.\r\n", dir);
         loop {
             if event::poll(Duration::from_millis(100))? {
                 if let Event::Key(_) = event::read()? {
@@ -497,15 +497,15 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
             terminal::Clear(terminal::ClearType::All),
             crossterm::cursor::MoveTo(0, 0)
         )?;
-        println!("Select Kifu to Replay (Arrow Keys / Enter / q):");
-        println!("------------------------------------------------");
+        print!("Select Kifu to Replay (Arrow Keys / Enter / q):\r\n");
+        print!("------------------------------------------------\r\n");
 
         for (i, file) in files.iter().enumerate() {
             let name = file.file_name().and_then(|s| s.to_str()).unwrap_or("???");
             if i == selected_index {
-                println!("> {}", name);
+                print!("> {}\r\n", name);
             } else {
-                println!("  {}", name);
+                print!("  {}\r\n", name);
             }
         }
 
