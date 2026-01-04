@@ -116,22 +116,23 @@ impl AlphaBetaAI {
         }
 
         // --- Null Move Pruning (NMP) ---
-        // Only for Strong AI
+        // Only for Strong AI, and only if not in check
         if self.strength == AIStrength::Strong && !in_check && depth >= 3 && beta.abs() < 100000 {
             let r = 2; // Reduction
-                       // Null move: pass turn (swap current_player, board stays same)
-                       // Result score is negated because we swapped perspective
-            let score = -self.alpha_beta(
-                board,
-                depth - 1 - r,
-                -beta,
-                -beta + 1,
-                !is_hero_pov,
-                current_player.opponent(),
-            );
+                       // Ensure depth doesn't underflow
+            if depth > r + 1 {
+                let score = -self.alpha_beta(
+                    board,
+                    depth - r - 1,
+                    -beta,
+                    -beta + 1,
+                    !is_hero_pov,
+                    current_player.opponent(),
+                );
 
-            if score >= beta {
-                return beta; // Cutoff
+                if score >= beta {
+                    return beta; // Cutoff
+                }
             }
         }
 
@@ -176,10 +177,15 @@ impl AlphaBetaAI {
                 }
 
                 // Search with reduced depth, null window
-                let d = (depth - 1).saturating_sub(reduction).max(1);
+                // Ensure depth stays positive
+                let reduced_depth = if depth > reduction + 1 {
+                    depth - reduction - 1
+                } else {
+                    1
+                };
                 score = -self.alpha_beta(
                     &next_board,
-                    d,
+                    reduced_depth,
                     -alpha - 1,
                     -alpha,
                     !is_hero_pov,

@@ -8,7 +8,7 @@ mod player;
 use crate::core::PlayerId;
 use crate::player::{PlayerController, TuiController};
 use crossterm::{execute, terminal};
-use std::io::{self, Write};
+use std::io::{self};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -214,11 +214,10 @@ async fn run_local() -> anyhow::Result<()> {
     print!("3. Player vs Weighted Random AI\r\n");
     print!("4. Player vs Minimax AI (Depth 2)\r\n");
     print!("5. Weighted AI vs Weighted AI\r\n");
-    println!("7. Player vs Alpha-Beta AI (Light)");
-    println!("8. Player vs Alpha-Beta AI (Strong)");
-    println!("9. Alpha-Beta AI (Strong) vs Alpha-Beta AI (Strong)");
-    println!("10. Replay Game Record (Kifu)");
-    print!("\r\n");
+    print!("7. Player vs Alpha-Beta AI (Light)\r\n");
+    print!("8. Player vs Alpha-Beta AI (Strong)\r\n");
+    print!("9. Alpha-Beta AI (Strong) vs Alpha-Beta AI (Strong)\r\n");
+    print!("10. Replay Game Record (Kifu)\r\n");
 
     let p_choice = loop {
         if event::poll(Duration::from_millis(100))? {
