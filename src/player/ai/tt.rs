@@ -46,6 +46,12 @@ impl TranspositionTable {
         }
     }
 
+    pub fn clear(&mut self) {
+        for entry in &mut self.entries {
+            *entry = None;
+        }
+    }
+
     pub fn get(&self, hash: u64) -> Option<(TTEntry, Option<Move>)> {
         let idx = (hash as usize) % self.size;
         if let Some((entry, mv)) = &self.entries[idx] {
