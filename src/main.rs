@@ -205,9 +205,6 @@ async fn run_client(addr: &str) -> anyhow::Result<()> {
 async fn run_local() -> anyhow::Result<()> {
     use crate::core::setup_from_strings;
     use crate::game::{Game, PerspectiveMode};
-    use crate::player::ai::minimax::MinimaxAI;
-    use crate::player::ai::random::RandomAI;
-    use crate::player::ai::weighted::WeightedRandomAI;
     use crossterm::event::{self, Event, KeyCode};
     use std::time::Duration;
 

@@ -1,7 +1,6 @@
 use crate::core::{Board, Move, PlayerId};
 use crate::logic::{apply_move, evaluate, legal_moves};
 use crate::player::PlayerController;
-use std::f64;
 
 pub struct MinimaxAI {
     pub player_id: PlayerId,
@@ -14,8 +13,30 @@ impl MinimaxAI {
         Self {
             player_id,
             name: name.to_string(),
-            depth: 2,
+            depth: 3,
         }
+    }
+
+    /// 指し手の有用性で見積もりを行い、ソートする（αβ枝刈りの効率化）
+    fn order_moves(&self, board: &Board, moves: &mut [Move]) {
+        moves.sort_by_key(|mv| {
+            let score = match mv {
+                Move::Normal { to, promote, .. } => {
+                    let mut s = 0;
+                    // 駒を取る手を優先
+                    if board.get_piece(*to).is_some() {
+                        s += 100;
+                    }
+                    // 成る手を優先
+                    if *promote {
+                        s += 50;
+                    }
+                    -s // 降順ソートのためマイナス
+                }
+                Move::Drop { .. } => 0,
+            };
+            score
+        });
     }
 
     fn minimax(
@@ -31,17 +52,15 @@ impl MinimaxAI {
             return evaluate(board, self.player_id);
         }
 
-        let moves = legal_moves(board, current_player);
+        let mut moves = legal_moves(board, current_player);
         if moves.is_empty() {
-            // 王がいない（取られた）場合は極端な値を返す
             return evaluate(board, self.player_id);
         }
 
-        let next_player = if current_player == PlayerId::Player1 {
-            PlayerId::Player2
-        } else {
-            PlayerId::Player1
-        };
+        // 枝刈り効率化のために指し手をソート
+        self.order_moves(board, &mut moves);
+
+        let next_player = current_player.opponent();
 
         if is_maximizing {
             let mut max_eval = i32::MIN;
@@ -79,18 +98,16 @@ impl PlayerController for MinimaxAI {
             return None;
         }
 
+        let mut sorted_moves = moves.to_vec();
+        self.order_moves(board, &mut sorted_moves);
+
         let mut best_move = None;
         let mut best_value = i32::MIN;
 
-        let opponent = if self.player_id == PlayerId::Player1 {
-            PlayerId::Player2
-        } else {
-            PlayerId::Player1
-        };
+        let opponent = self.player_id.opponent();
 
-        for mv in moves {
-            let next_board = apply_move(board, mv, self.player_id);
-            // 既に depth=1 の探索（自分の一手）は終わっているので、次は相手の番(is_maximizing=false)
+        for mv in sorted_moves {
+            let next_board = apply_move(board, &mv, self.player_id);
             let board_value = self.minimax(
                 &next_board,
                 self.depth - 1,
