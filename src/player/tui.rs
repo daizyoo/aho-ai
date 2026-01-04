@@ -77,24 +77,43 @@ impl PlayerController for TuiController {
                             }
                         }
                         KeyCode::Left => {
-                            if state.perspective == PlayerId::Player1 {
-                                if state.cursor.x > 0 {
-                                    state.cursor.x -= 1;
+                            if state.hand_mode {
+                                if let Some(hand) = board.hand.get(&self.player_id) {
+                                    let items_count = hand.values().filter(|&&c| c > 0).count();
+                                    if items_count > 0 {
+                                        state.hand_index =
+                                            (state.hand_index + items_count - 1) % items_count;
+                                    }
                                 }
                             } else {
-                                if state.cursor.x < board.width - 1 {
-                                    state.cursor.x += 1;
+                                if state.perspective == PlayerId::Player1 {
+                                    if state.cursor.x > 0 {
+                                        state.cursor.x -= 1;
+                                    }
+                                } else {
+                                    if state.cursor.x < board.width - 1 {
+                                        state.cursor.x += 1;
+                                    }
                                 }
                             }
                         }
                         KeyCode::Right => {
-                            if state.perspective == PlayerId::Player1 {
-                                if state.cursor.x < board.width - 1 {
-                                    state.cursor.x += 1;
+                            if state.hand_mode {
+                                if let Some(hand) = board.hand.get(&self.player_id) {
+                                    let items_count = hand.values().filter(|&&c| c > 0).count();
+                                    if items_count > 0 {
+                                        state.hand_index = (state.hand_index + 1) % items_count;
+                                    }
                                 }
                             } else {
-                                if state.cursor.x > 0 {
-                                    state.cursor.x -= 1;
+                                if state.perspective == PlayerId::Player1 {
+                                    if state.cursor.x < board.width - 1 {
+                                        state.cursor.x += 1;
+                                    }
+                                } else {
+                                    if state.cursor.x > 0 {
+                                        state.cursor.x -= 1;
+                                    }
                                 }
                             }
                         }

@@ -152,9 +152,8 @@ fn render_hands(board: &Board, state: &DisplayState) {
             } else {
                 print!("  ");
                 for (i, (&kind, &count)) in items.iter().enumerate() {
-                    let is_selected_hand = state.hand_mode
-                        && player == PlayerId::Player1 // Currently only P1 supports interactive hand selection
-                        && state.hand_index == i;
+                    let is_selected_hand =
+                        state.hand_mode && player == state.perspective && state.hand_index == i;
 
                     let char_str = kind.display_char();
                     let label = format!("[{} x{}]", char_str, count);
