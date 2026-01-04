@@ -73,7 +73,7 @@ async fn run_menu() -> anyhow::Result<()> {
     print!("1. Local Play\r\n");
     print!("2. Start Server\r\n");
     print!("3. Connect to Server\r\n");
-print!("4. Self-Play (Batch AI vs AI)\r\n");
+    print!("4. Self-Play (Batch AI vs AI)\r\n");
 
     let mode = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -583,13 +583,12 @@ async fn run_selfplay() -> anyhow::Result<()> {
         num_input.parse().unwrap_or(10)
     };
 
-
     // AI1 Strength Selection
     print!("\r\nPlayer 1 AI Strength:\r\n");
     print!("1. Light (Depth 4, 1s)\r\n");
     print!("2. Strong (Depth 6, 3s)\r\n");
     print!("Select (default: 2): ");
-    
+
     let ai1_strength = loop {
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
@@ -613,7 +612,7 @@ async fn run_selfplay() -> anyhow::Result<()> {
     print!("1. Light (Depth 4, 1s)\r\n");
     print!("2. Strong (Depth 6, 3s)\r\n");
     print!("Select (default: 2): ");
-    
+
     let ai2_strength = loop {
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
@@ -635,9 +634,13 @@ async fn run_selfplay() -> anyhow::Result<()> {
     // Board Setup Selection
     print!("\r\nBoard Setup:\r\n");
     print!("1. Standard Mixed (Shogi P1 vs Chess P2)\r\n");
-    print!("2. Fair (Symmetric Mixed)\r\n");
-    print!("Select (default: 2): ");
-    
+    print!("2. Reversed Mixed (Chess P1 vs Shogi P2)\r\n");
+    print!("3. Shogi Only\r\n");
+    print!("4. Chess Only\r\n");
+    print!("5. Fair (Symmetric Mixed)\r\n");
+    print!("6. Reversed Fair\r\n");
+    print!("Select (default: 5): ");
+
     let board_setup = loop {
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
@@ -646,9 +649,25 @@ async fn run_selfplay() -> anyhow::Result<()> {
                         print!("1\r\n");
                         break crate::selfplay::BoardSetupType::StandardMixed;
                     }
-                    KeyCode::Char('2') | KeyCode::Enter => {
+                    KeyCode::Char('2') => {
                         print!("2\r\n");
+                        break crate::selfplay::BoardSetupType::ReversedMixed;
+                    }
+                    KeyCode::Char('3') => {
+                        print!("3\r\n");
+                        break crate::selfplay::BoardSetupType::ShogiOnly;
+                    }
+                    KeyCode::Char('4') => {
+                        print!("4\r\n");
+                        break crate::selfplay::BoardSetupType::ChessOnly;
+                    }
+                    KeyCode::Char('5') | KeyCode::Enter => {
+                        print!("5\r\n");
                         break crate::selfplay::BoardSetupType::Fair;
+                    }
+                    KeyCode::Char('6') => {
+                        print!("6\r\n");
+                        break crate::selfplay::BoardSetupType::ReversedFair;
                     }
                     _ => {}
                 }

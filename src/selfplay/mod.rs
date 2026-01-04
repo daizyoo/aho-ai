@@ -8,8 +8,12 @@ use std::time::Instant;
 
 #[derive(Clone, Copy)]
 pub enum BoardSetupType {
-    StandardMixed,
-    Fair,
+    StandardMixed, // Shogi P1 vs Chess P2
+    ReversedMixed, // Chess P1 vs Shogi P2
+    ShogiOnly,     // Shogi vs Shogi
+    ChessOnly,     // Chess vs Chess
+    Fair,          // Symmetric Mixed
+    ReversedFair,  // Reversed Symmetric Mixed
 }
 
 pub struct SelfPlayConfig {
@@ -85,9 +89,25 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
                 let map = crate::core::setup::get_standard_mixed_setup();
                 crate::core::setup::setup_from_strings(&map, true, false)
             }
+            BoardSetupType::ReversedMixed => {
+                let map = crate::core::setup::get_reversed_mixed_setup();
+                crate::core::setup::setup_from_strings(&map, false, true)
+            }
+            BoardSetupType::ShogiOnly => {
+                let map = crate::core::setup::get_shogi_setup();
+                crate::core::setup::setup_from_strings(&map, true, true)
+            }
+            BoardSetupType::ChessOnly => {
+                let map = crate::core::setup::get_chess_setup();
+                crate::core::setup::setup_from_strings(&map, false, false)
+            }
             BoardSetupType::Fair => {
                 let map = crate::core::setup::get_fair_setup();
                 crate::core::setup::setup_from_strings(&map, true, true)
+            }
+            BoardSetupType::ReversedFair => {
+                let map = crate::core::setup::get_reversed_fair_setup();
+                crate::core::setup::setup_from_strings(&map, false, false)
             }
         };
 
@@ -123,10 +143,11 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
             terminal::Clear(terminal::ClearType::All),
             crossterm::cursor::MoveTo(0, 0)
         )?;
-        
+
         print!("=== Self-Play Progress ===\r\n\r\n");
         print!("Game {}/{} completed\r\n", game_num, config.num_games);
-        print!("Result: {} ({} moves, {:.1}s)\r\n\r\n", 
+        print!(
+            "Result: {} ({} moves, {:.1}s)\r\n\r\n",
             match winner {
                 Some(PlayerId::Player1) => "P1 wins",
                 Some(PlayerId::Player2) => "P2 wins",
@@ -135,23 +156,26 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
             move_count,
             elapsed.as_secs_f64()
         );
-        
+
         print!("--- Current Statistics ---\r\n");
-        print!("P1 Wins: {} ({:.1}%)\r\n", 
+        print!(
+            "P1 Wins: {} ({:.1}%)\r\n",
             stats.p1_wins,
             stats.p1_wins as f64 / stats.total_games as f64 * 100.0
         );
-        print!("P2 Wins: {} ({:.1}%)\r\n", 
+        print!(
+            "P2 Wins: {} ({:.1}%)\r\n",
             stats.p2_wins,
             stats.p2_wins as f64 / stats.total_games as f64 * 100.0
         );
-        print!("Draws: {} ({:.1}%)\r\n", 
+        print!(
+            "Draws: {} ({:.1}%)\r\n",
             stats.draws,
             stats.draws as f64 / stats.total_games as f64 * 100.0
         );
         print!("Avg Moves: {:.1}\r\n", stats.avg_moves);
         print!("Avg Time: {:.1}s\r\n\r\n", stats.avg_time_ms / 1000.0);
-        
+
         std::io::Write::flush(&mut std::io::stdout())?;
 
         // Save kifu if requested
@@ -195,9 +219,12 @@ fn run_game_silent(
             }
         }
 
-
         // Display current move being calculated
-        print!("\rMove {}: {:?} thinking...", move_count + 1, current_player);
+        print!(
+            "\rMove {}: {:?} thinking...",
+            move_count + 1,
+            current_player
+        );
         std::io::Write::flush(&mut std::io::stdout())?;
 
         if let Some(chosen_move) = controller.choose_move(&game.board, &legal_moves) {
