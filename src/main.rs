@@ -283,8 +283,8 @@ async fn run_local() -> anyhow::Result<()> {
         "2" => setup_from_strings(&crate::core::setup::get_reversed_mixed_setup(), false, true),
         "3" => setup_from_strings(&crate::core::setup::get_shogi_setup(), true, true),
         "4" => setup_from_strings(&crate::core::setup::get_chess_setup(), false, false),
-        "5" => setup_from_strings(&crate::core::setup::get_fair_setup(), true, false), // Hint: P1=S, P2=C
-        _ => setup_from_strings(&crate::core::setup::get_reversed_fair_setup(), false, true), // Hint: P1=C, P2=S
+        "5" => setup_from_strings(&crate::core::setup::get_fair_setup(), true, true), // Mixed: use S hint for both
+        _ => setup_from_strings(&crate::core::setup::get_reversed_fair_setup(), true, true), // Mixed: use S hint for both
     };
 
     let mut game = Game::new(board);
