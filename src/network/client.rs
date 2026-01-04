@@ -24,6 +24,7 @@ impl NetworkClient {
     ) -> anyhow::Result<()> {
         let (reader, mut writer) = self.stream.split();
         let mut lines = BufReader::new(reader).lines();
+        let mut my_id: Option<PlayerId> = None;
 
         // 1. Join
         let join = NetMessage::Join {
@@ -41,15 +42,21 @@ impl NetworkClient {
                     let msg: NetMessage = serde_json::from_str(&line)?;
                     match msg {
                         NetMessage::Welcome { player_id, board } => {
+                            my_id = Some(player_id);
                             let _ = player_id_tx.send(player_id);
                             let _ = board_tx.send((board, PlayerId::Player1));
                         }
                         NetMessage::MatchFound { opponent_name: _ } => {
                         }
                         NetMessage::Update { board, last_move, next_player } => {
-                            // 相手の指し手をUI表示用に流す
+                            // 相手の指し手のみをUI表示用に流す
+                            // (自分が指した直後のUpdateでは next_player != me なのでスルーされる)
                             if let Some(mv) = last_move {
-                                let _ = remote_move_tx.send(mv);
+                                if let Some(me) = my_id {
+                                    if next_player == me {
+                                        let _ = remote_move_tx.send(mv);
+                                    }
+                                }
                             }
                             let _ = board_tx.send((board, next_player));
                         }
