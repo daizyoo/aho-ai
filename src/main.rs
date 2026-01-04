@@ -76,14 +76,17 @@ async fn run_client() -> anyhow::Result<()> {
     println!("Connected!");
 
     let (player_id_tx, player_id_rx) = mpsc::channel::<PlayerId>();
-    let (board_tx, board_rx) = mpsc::channel::<Board>();
     let (remote_move_tx, remote_move_rx) = mpsc::channel::<Move>();
     let (local_move_tx, local_move_rx) = tokio_mpsc::unbounded_channel::<Move>();
 
+    // 盤面更新同期用
+    let (board_sync_tx, board_sync_rx) = mpsc::channel::<Board>();
+
     let mut client_handle = client;
     tokio::spawn(async move {
+        // board_tx の代わりに board_sync_tx を渡す
         if let Err(e) = client_handle
-            .run(player_id_tx, board_tx, remote_move_tx, local_move_rx)
+            .run(player_id_tx, board_sync_tx, remote_move_tx, local_move_rx)
             .await
         {
             eprintln!("Client networking error: {}", e);
@@ -93,9 +96,13 @@ async fn run_client() -> anyhow::Result<()> {
     // Wait for initial data
     print!("Waiting for opponent...\r\n");
     let my_id = player_id_rx.recv()?;
-    let board = board_rx.recv()?;
+    // 初期盤面を同期チャネルから受け取る
+    let board = board_sync_rx.recv()?;
 
     let mut game = Game::new(board);
+    game.board_sync_rx = Some(board_sync_rx);
+    game.perspective_mode = crate::game::PerspectiveMode::Fixed(my_id);
+
     let p1: Box<dyn PlayerController>;
     let p2: Box<dyn PlayerController>;
 
@@ -124,7 +131,7 @@ async fn run_client() -> anyhow::Result<()> {
 
 async fn run_local() -> anyhow::Result<()> {
     use crate::core::setup_from_strings;
-    use crate::game::Game;
+    use crate::game::{Game, PerspectiveMode};
     use crate::player::ai::weighted::WeightedRandomAI;
     use crossterm::event::{self, Event, KeyCode};
     use std::time::Duration;
@@ -148,18 +155,25 @@ async fn run_local() -> anyhow::Result<()> {
         }
     };
 
-    let (p1, p2): (Box<dyn PlayerController>, Box<dyn PlayerController>) = match p_choice {
+    let (p1, p2, perspective): (
+        Box<dyn PlayerController>,
+        Box<dyn PlayerController>,
+        PerspectiveMode,
+    ) = match p_choice {
         "1" => (
             Box::new(TuiController::new(PlayerId::Player1, "Player 1")),
             Box::new(TuiController::new(PlayerId::Player2, "Player 2")),
+            PerspectiveMode::AutoFlip,
         ),
         "2" => (
             Box::new(TuiController::new(PlayerId::Player1, "Human")),
             Box::new(WeightedRandomAI::new(PlayerId::Player2, "Weighted AI")),
+            PerspectiveMode::Fixed(PlayerId::Player1),
         ),
         "3" => (
             Box::new(WeightedRandomAI::new(PlayerId::Player1, "Sente AI")),
             Box::new(WeightedRandomAI::new(PlayerId::Player2, "Gote AI")),
+            PerspectiveMode::Fixed(PlayerId::Player1),
         ),
         _ => unreachable!(),
     };
@@ -185,14 +199,30 @@ async fn run_local() -> anyhow::Result<()> {
         }
     };
 
+    let (p1_shogi, p2_shogi) = match b_choice {
+        "1" => (true, false),
+        "2" => (false, true),
+        "3" => (true, true),
+        _ => (false, false),
+    };
+
     let board = match b_choice {
-        "1" => setup_from_strings(&crate::core::setup::get_standard_mixed_setup(), true, false),
-        "2" => setup_from_strings(&crate::core::setup::get_reversed_mixed_setup(), false, true),
-        "3" => setup_from_strings(&crate::core::setup::get_shogi_setup(), true, true),
-        _ => setup_from_strings(&crate::core::setup::get_chess_setup(), false, false),
+        "1" => setup_from_strings(
+            &crate::core::setup::get_standard_mixed_setup(),
+            p1_shogi,
+            p2_shogi,
+        ),
+        "2" => setup_from_strings(
+            &crate::core::setup::get_reversed_mixed_setup(),
+            p1_shogi,
+            p2_shogi,
+        ),
+        "3" => setup_from_strings(&crate::core::setup::get_shogi_setup(), p1_shogi, p2_shogi),
+        _ => setup_from_strings(&crate::core::setup::get_chess_setup(), p1_shogi, p2_shogi),
     };
 
     let mut game = Game::new(board);
+    game.perspective_mode = perspective;
     game.play(p1.as_ref(), p2.as_ref(), |_| {});
 
     Ok(())

@@ -2,9 +2,17 @@ use crate::core::{Board, PlayerId};
 use crate::logic::{apply_move, legal_moves};
 use crate::player::PlayerController;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PerspectiveMode {
+    Fixed(PlayerId),
+    AutoFlip,
+}
+
 pub struct Game {
     pub board: Board,
     pub current_player: PlayerId,
+    pub board_sync_rx: Option<std::sync::mpsc::Receiver<Board>>,
+    pub perspective_mode: PerspectiveMode,
 }
 
 impl Game {
@@ -12,6 +20,8 @@ impl Game {
         Game {
             board,
             current_player: PlayerId::Player1,
+            board_sync_rx: None,
+            perspective_mode: PerspectiveMode::AutoFlip,
         }
     }
 
@@ -20,9 +30,19 @@ impl Game {
         F: FnMut(&crate::core::Move),
     {
         loop {
+            // 外部（ネットワーク等）からの盤面更新があれば反映
+            if let Some(ref rx) = self.board_sync_rx {
+                while let Ok(new_board) = rx.try_recv() {
+                    self.board = new_board;
+                }
+            }
+
             // 現状をまず描画 (リモートプレイヤーも待機画面が見えるように)
             let mut state = crate::display::DisplayState::default();
-            state.perspective = self.current_player;
+            state.perspective = match self.perspective_mode {
+                PerspectiveMode::Fixed(p) => p,
+                PerspectiveMode::AutoFlip => self.current_player,
+            };
             state.last_move = self.board.last_move.clone();
             state.status_msg = Some(format!(
                 "{}'s turn ({:?})",
@@ -58,8 +78,6 @@ impl Game {
             };
 
             if controller.name().contains("AI") {
-                // AI thinking message used to be here, but we now render at start of turn.
-                // Re-rendering with AI specific message if needed.
                 let check_msg = if crate::logic::is_in_check(&self.board, self.current_player) {
                     " (CHECK)"
                 } else {
@@ -74,6 +92,14 @@ impl Game {
             }
 
             if let Some(mv) = controller.choose_move(&self.board, &moves) {
+                // 移動適用前の最終同期チェック
+                if let Some(ref rx) = self.board_sync_rx {
+                    while let Ok(new_board) = rx.try_recv() {
+                        self.board = new_board;
+                    }
+                }
+
+                // ローカルで移動を適用
                 on_move(&mv);
                 self.board = apply_move(&self.board, &mv, self.current_player);
                 self.current_player = self.current_player.opponent();

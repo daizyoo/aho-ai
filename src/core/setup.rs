@@ -39,7 +39,13 @@ pub fn setup_from_strings(setup: &[&str], p1_shogi: bool, p2_shogi: bool) -> Boa
                 (s, PlayerId::Player2)
             };
 
-            let kind = parse_piece_kind(kind_str);
+            let is_shogi_hint = if owner == PlayerId::Player1 {
+                p1_shogi
+            } else {
+                p2_shogi
+            };
+
+            let kind = parse_piece_kind(kind_str, is_shogi_hint);
             if let Some(k) = kind {
                 board.place_piece(Position::new(x, y), Piece::new(k, owner));
             }
@@ -48,43 +54,41 @@ pub fn setup_from_strings(setup: &[&str], p1_shogi: bool, p2_shogi: bool) -> Boa
     board
 }
 
-fn parse_piece_kind(s: &str) -> Option<PieceKind> {
+fn parse_piece_kind(s: &str, is_shogi_hint: bool) -> Option<PieceKind> {
     let lower = s.to_lowercase();
     match lower.as_str() {
-        // 将棋系 (デフォルト)
-        "k" => {
-            if s.chars().next().unwrap().is_uppercase() {
-                Some(PieceKind::S_King)
-            } else {
-                Some(PieceKind::S_King)
-            }
-        }
-        "r" => Some(PieceKind::S_Rook),
-        "b" => Some(PieceKind::S_Bishop),
-        "g" => Some(PieceKind::S_Gold),
-        "s" => Some(PieceKind::S_Silver),
-        "n" => Some(PieceKind::S_Knight),
-        "l" => Some(PieceKind::S_Lance),
-        "p" => Some(PieceKind::S_Pawn),
-        // チェス系 (明示的または種類で判別)
+        // 成り駒などの2文字表記はそのまま
+        "cp" => Some(PieceKind::C_Pawn),
         "ck" => Some(PieceKind::C_King),
         "cq" => Some(PieceKind::C_Queen),
         "cr" => Some(PieceKind::C_Rook),
         "cb" => Some(PieceKind::C_Bishop),
         "cn" => Some(PieceKind::C_Knight),
-        "cp" => Some(PieceKind::C_Pawn),
         _ => {
-            // 将棋駒の1文字パース
-            match s.chars().next().unwrap().to_ascii_uppercase() {
-                'K' => Some(PieceKind::S_King),
-                'R' => Some(PieceKind::S_Rook),
-                'B' => Some(PieceKind::S_Bishop),
-                'G' => Some(PieceKind::S_Gold),
-                'S' => Some(PieceKind::S_Silver),
-                'N' => Some(PieceKind::S_Knight),
-                'L' => Some(PieceKind::S_Lance),
-                'P' => Some(PieceKind::S_Pawn),
-                _ => None,
+            // 1文字表記のパース
+            let ch = s.chars().next().unwrap().to_ascii_uppercase();
+            if is_shogi_hint {
+                match ch {
+                    'K' => Some(PieceKind::S_King),
+                    'R' => Some(PieceKind::S_Rook),
+                    'B' => Some(PieceKind::S_Bishop),
+                    'G' => Some(PieceKind::S_Gold),
+                    'S' => Some(PieceKind::S_Silver),
+                    'N' => Some(PieceKind::S_Knight),
+                    'L' => Some(PieceKind::S_Lance),
+                    'P' => Some(PieceKind::S_Pawn),
+                    _ => None,
+                }
+            } else {
+                match ch {
+                    'K' => Some(PieceKind::C_King),
+                    'Q' => Some(PieceKind::C_Queen),
+                    'R' => Some(PieceKind::C_Rook),
+                    'B' => Some(PieceKind::C_Bishop),
+                    'N' => Some(PieceKind::C_Knight),
+                    'P' => Some(PieceKind::C_Pawn),
+                    _ => None,
+                }
             }
         }
     }
