@@ -13,6 +13,7 @@ pub struct Game {
     pub current_player: PlayerId,
     pub board_sync_rx: Option<std::sync::mpsc::Receiver<(Board, PlayerId)>>,
     pub perspective_mode: PerspectiveMode,
+    pub history: Vec<crate::core::Move>,
 }
 
 impl Game {
@@ -22,6 +23,7 @@ impl Game {
             current_player: PlayerId::Player1,
             board_sync_rx: None,
             perspective_mode: PerspectiveMode::AutoFlip,
+            history: Vec::new(),
         }
     }
 
@@ -69,7 +71,7 @@ impl Game {
                     },
                 );
                 crate::display::render_board(&self.board, &state);
-                std::thread::sleep(std::time::Duration::from_secs(10));
+                std::thread::sleep(std::time::Duration::from_secs(3));
                 break;
             }
 
@@ -129,6 +131,7 @@ impl Game {
                     on_move(&mv);
                 }
                 self.board = apply_move(&self.board, &mv, self.current_player);
+                self.history.push(mv.clone());
                 self.current_player = self.current_player.opponent();
             } else {
                 println!(
@@ -138,5 +141,50 @@ impl Game {
                 break;
             }
         }
+
+        self.ask_save_kifu();
+    }
+
+    fn ask_save_kifu(&self) {
+        use std::io::Write;
+
+        // 端末設定を一度戻す（入力のため）
+        let _ = crossterm::terminal::disable_raw_mode();
+
+        print!("\r\nSave game record? (y/N) > ");
+        let _ = std::io::stdout().flush();
+
+        let mut input = String::new();
+        let _ = std::io::stdin().read_line(&mut input);
+
+        if input.trim().eq_ignore_ascii_case("y") {
+            let default_name = "kifu.json";
+            print!("Filename (default: {}) > ", default_name);
+            let _ = std::io::stdout().flush();
+
+            let mut filename_input = String::new();
+            let _ = std::io::stdin().read_line(&mut filename_input);
+            let filename = filename_input.trim();
+            let filename = if filename.is_empty() {
+                default_name
+            } else {
+                filename
+            };
+
+            match std::fs::File::create(filename) {
+                Ok(file) => {
+                    if let Err(e) = serde_json::to_writer_pretty(file, &self.history) {
+                        println!("Failed to write kifu: {}", e);
+                    } else {
+                        println!("Kifu saved to {}", filename);
+                    }
+                }
+                Err(e) => println!("Failed to create file: {}", e),
+            }
+            // Wait user to see message
+            std::thread::sleep(std::time::Duration::from_secs(2));
+        }
+
+        // main.rs側で再度 enable_raw_mode されるが、念のため
     }
 }
