@@ -285,28 +285,51 @@ pub fn apply_move(board: &Board, mv: &Move, player: PlayerId) -> Board {
 /// 評価関数
 pub fn evaluate(board: &Board, player: PlayerId) -> i32 {
     let mut score = 0;
+
+    // 盤上の駒の評価
     for piece in board.pieces.values() {
-        let val = match piece.kind {
-            PieceKind::S_King | PieceKind::C_King => 10000,
-            PieceKind::S_Rook | PieceKind::C_Rook => 900,
-            PieceKind::S_Bishop | PieceKind::C_Bishop => 800,
-            PieceKind::C_Queen => 1000,
-            PieceKind::S_Gold
-            | PieceKind::S_ProSilver
-            | PieceKind::S_ProKnight
-            | PieceKind::S_ProLance
-            | PieceKind::S_ProPawn => 600,
-            PieceKind::S_Silver | PieceKind::C_Knight => 500,
-            PieceKind::S_Knight => 400,
-            PieceKind::S_Lance => 300,
-            PieceKind::S_Pawn | PieceKind::C_Pawn => 100,
-            PieceKind::S_ProRook | PieceKind::S_ProBishop => 1100,
-        };
+        let val = get_piece_value(piece.kind);
         if piece.owner == player {
             score += val;
         } else {
             score -= val;
         }
     }
+
+    // 持ち駒の評価
+    for (&p_id, hand) in board.hand.iter() {
+        for (&kind, &count) in hand.iter() {
+            if count > 0 {
+                // 持ち駒は盤上にあるより少し価値を高く見積もる（再配置の柔軟性）
+                // ただし王は持ち駒にならないので除外
+                let val = (get_piece_value(kind) as f32 * 1.1) as i32;
+                if p_id == player {
+                    score += val * count as i32;
+                } else {
+                    score -= val * count as i32;
+                }
+            }
+        }
+    }
+
     score
+}
+
+fn get_piece_value(kind: PieceKind) -> i32 {
+    match kind {
+        PieceKind::S_King | PieceKind::C_King => 100000,
+        PieceKind::S_Rook | PieceKind::C_Rook => 900,
+        PieceKind::S_Bishop | PieceKind::C_Bishop => 800,
+        PieceKind::C_Queen => 1000,
+        PieceKind::S_Gold
+        | PieceKind::S_ProSilver
+        | PieceKind::S_ProKnight
+        | PieceKind::S_ProLance
+        | PieceKind::S_ProPawn => 600,
+        PieceKind::S_Silver | PieceKind::C_Knight => 500,
+        PieceKind::S_Knight => 400,
+        PieceKind::S_Lance => 300,
+        PieceKind::S_Pawn | PieceKind::C_Pawn => 100,
+        PieceKind::S_ProRook | PieceKind::S_ProBishop => 1100,
+    }
 }

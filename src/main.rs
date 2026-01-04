@@ -205,14 +205,19 @@ async fn run_client(addr: &str) -> anyhow::Result<()> {
 async fn run_local() -> anyhow::Result<()> {
     use crate::core::setup_from_strings;
     use crate::game::{Game, PerspectiveMode};
+    use crate::player::ai::minimax::MinimaxAI;
+    use crate::player::ai::random::RandomAI;
     use crate::player::ai::weighted::WeightedRandomAI;
     use crossterm::event::{self, Event, KeyCode};
     use std::time::Duration;
 
     print!("\r\nSelect players:\r\n");
     print!("1. Human vs Human (TUI)\r\n");
-    print!("2. Human vs Weighted AI\r\n");
-    print!("3. Weighted AI vs Weighted AI\r\n");
+    print!("2. Player vs Random AI\r\n");
+    print!("3. Player vs Weighted Random AI\r\n");
+    print!("4. Player vs Minimax AI (Depth 2)\r\n");
+    print!("5. Weighted AI vs Weighted AI\r\n");
+    print!("6. Minimax AI vs Weighted AI\r\n");
 
     let p_choice = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -221,6 +226,9 @@ async fn run_local() -> anyhow::Result<()> {
                     KeyCode::Char('1') => break "1",
                     KeyCode::Char('2') => break "2",
                     KeyCode::Char('3') => break "3",
+                    KeyCode::Char('4') => break "4",
+                    KeyCode::Char('5') => break "5",
+                    KeyCode::Char('6') => break "6",
                     KeyCode::Char('q') => return Ok(()),
                     _ => {}
                 }
@@ -232,23 +240,53 @@ async fn run_local() -> anyhow::Result<()> {
         Box<dyn PlayerController>,
         Box<dyn PlayerController>,
         PerspectiveMode,
-    ) = match p_choice {
-        "1" => (
-            Box::new(TuiController::new(PlayerId::Player1, "Player 1")),
-            Box::new(TuiController::new(PlayerId::Player2, "Player 2")),
-            PerspectiveMode::AutoFlip,
-        ),
-        "2" => (
-            Box::new(TuiController::new(PlayerId::Player1, "Human")),
-            Box::new(WeightedRandomAI::new(PlayerId::Player2, "Weighted AI")),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        "3" => (
-            Box::new(WeightedRandomAI::new(PlayerId::Player1, "Sente AI")),
-            Box::new(WeightedRandomAI::new(PlayerId::Player2, "Gote AI")),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        _ => unreachable!(),
+    ) = {
+        let p1: Box<dyn PlayerController> = match p_choice {
+            "5" => Box::new(crate::player::ai::WeightedRandomAI::new(
+                PlayerId::Player1,
+                "Weighted1",
+            )),
+            "6" => Box::new(crate::player::ai::MinimaxAI::new(
+                PlayerId::Player1,
+                "Minimax1",
+            )),
+            _ => Box::new(crate::player::TuiController::new(PlayerId::Player1, "You")),
+        };
+
+        let p2: Box<dyn PlayerController> = match p_choice {
+            "1" => Box::new(crate::player::TuiController::new(
+                PlayerId::Player2,
+                "Opponent",
+            )),
+            "2" => Box::new(crate::player::ai::RandomAI::new(
+                PlayerId::Player2,
+                "RandomAI",
+            )),
+            "3" => Box::new(crate::player::ai::WeightedRandomAI::new(
+                PlayerId::Player2,
+                "WeightedAI",
+            )),
+            "4" | "6" => Box::new(crate::player::ai::MinimaxAI::new(
+                PlayerId::Player2,
+                "MinimaxAI",
+            )),
+            "5" => Box::new(crate::player::ai::WeightedRandomAI::new(
+                PlayerId::Player2,
+                "Weighted2",
+            )),
+            _ => Box::new(crate::player::TuiController::new(
+                PlayerId::Player2,
+                "Opponent",
+            )),
+        };
+
+        let perspective = match p_choice {
+            "1" => PerspectiveMode::AutoFlip,
+            "2" | "3" | "4" => PerspectiveMode::Fixed(PlayerId::Player1),
+            "5" | "6" => PerspectiveMode::Fixed(PlayerId::Player1),
+            _ => unreachable!(),
+        };
+        (p1, p2, perspective)
     };
 
     print!("\r\nSelect board setup:\r\n");
