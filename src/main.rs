@@ -4,6 +4,7 @@ mod game;
 mod logic;
 mod network;
 mod player;
+mod selfplay;
 
 use crate::core::PlayerId;
 use crate::player::{PlayerController, TuiController};

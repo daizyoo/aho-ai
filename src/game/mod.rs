@@ -18,12 +18,12 @@ pub enum PerspectiveMode {
 }
 
 pub struct Game {
-    board: Board,
-    initial_board: Board,
-    current_player: PlayerId,
+    pub board: Board,
+    pub initial_board: Board,
+    pub current_player: PlayerId,
     pub board_sync_rx: Option<std::sync::mpsc::Receiver<(Board, PlayerId)>>,
     pub perspective_mode: PerspectiveMode,
-    history: Vec<Move>,
+    pub history: Vec<Move>,
 }
 
 impl Game {
