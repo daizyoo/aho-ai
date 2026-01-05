@@ -402,16 +402,16 @@ async fn run_local() -> anyhow::Result<()> {
 
     // p1_shogi / p2_shogi determine piece parsing when 1-char symbols are used
     // in fair setup, both are used, so we just set them based on majority or just true/false
-    let board = match b_choice {
-        "1" => setup_from_strings(&crate::core::setup::get_standard_mixed_setup(), true, false),
-        "2" => setup_from_strings(&crate::core::setup::get_reversed_mixed_setup(), false, true),
-        "3" => setup_from_strings(&crate::core::setup::get_shogi_setup(), true, true),
-        "4" => setup_from_strings(&crate::core::setup::get_chess_setup(), false, false),
-        "5" => setup_from_strings(&crate::core::setup::get_fair_setup(), true, true), // Mixed: use S hint for both
-        _ => setup_from_strings(&crate::core::setup::get_reversed_fair_setup(), true, true), // Mixed: use S hint for both
+    let (board, setup_name) = match b_choice {
+        "1" => (setup_from_strings(&crate::core::setup::get_standard_mixed_setup(), true, false), "StandardMixed".to_string()),
+        "2" => (setup_from_strings(&crate::core::setup::get_reversed_mixed_setup(), false, true), "ReversedMixed".to_string()),
+        "3" => (setup_from_strings(&crate::core::setup::get_shogi_setup(), true, true), "ShogiOnly".to_string()),
+        "4" => (setup_from_strings(&crate::core::setup::get_chess_setup(), false, false), "ChessOnly".to_string()),
+        "5" => (setup_from_strings(&crate::core::setup::get_fair_setup(), true, true), "Fair".to_string()),
+        _ => (setup_from_strings(&crate::core::setup::get_reversed_fair_setup(), true, true), "ReversedFair".to_string()),
     };
 
-    let mut game = Game::new(board);
+    let mut game = Game::with_setup(board, setup_name);
     game.perspective_mode = perspective;
     game.play(p1.as_ref(), p2.as_ref(), |_| {});
 
