@@ -92,7 +92,7 @@ impl ReplayViewer {
         // It's likely intended for testing or specific scenarios where `KifuData` isn't available.
         // For now, we'll use a dummy KifuData.
         Self {
-            kifu: crate::game::KifuData::default(), // Placeholder
+            kifu: crate::game::KifuData { board_setup: "Unknown".to_string(), player1_name: "?".to_string(), player2_name: "?".to_string(), moves: vec![] }, // Placeholder
             history,
             boards,
             current_index: 0,
