@@ -3,107 +3,36 @@ use crate::game::{Game, KifuData, PerspectiveMode, ThinkingInfo};
 use crate::player::ai::{AIStrength, AlphaBetaAI};
 use crate::player::PlayerController;
 use crossterm::{execute, terminal};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 #[derive(Clone, Copy)]
 pub enum BoardSetupType {
-    StandardMixed, // Shogi P1 vs Chess P2
-    ReversedMixed, // Chess P1 vs Shogi P2
-    ShogiOnly,     // Shogi vs Shogi
-    ChessOnly,     // Chess vs Chess
-    Fair,          // Symmetric Mixed
-    ReversedFair,  // Reversed Symmetric Mixed
+    StandardMixed,
+    ReversedMixed,
+    ShogiOnly,
+    ChessOnly,
+    Fair,
+    ReversedFair,
 }
 
-pub struct SelfPlayConfig {
-    pub num_games: usize,
-    pub ai1_strength: AIStrength,
-    pub ai2_strength: AIStrength,
-    pub board_setup: BoardSetupType,
-    pub save_kifus: bool,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct GameResult {
-    pub winner: Option<PlayerId>,
-    pub moves: usize,
-    pub time_ms: u128,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct SelfPlayStats {
-    pub total_games: usize,
-    pub p1_wins: usize,
-    pub p2_wins: usize,
-    pub draws: usize,
-    pub avg_moves: f64,
-    pub avg_time_ms: f64,
-    pub ai1_strength: String,
-    pub ai2_strength: String,
-    pub board_setup: String,
-    pub games: Vec<GameResult>,
-}
-
-impl SelfPlayStats {
-    pub fn new() -> Self {
-        Self {
-            total_games: 0,
-            p1_wins: 0,
-            p2_wins: 0,
-            draws: 0,
-            avg_moves: 0.0,
-            avg_time_ms: 0.0,
-            ai1_strength: String::new(),
-            ai2_strength: String::new(),
-            board_setup: String::new(),
-            games: Vec::new(),
+impl BoardSetupType {
+    fn to_string(&self) -> String {
+        match self {
+            BoardSetupType::StandardMixed => "StandardMixed",
+            BoardSetupType::ReversedMixed => "ReversedMixed",
+            BoardSetupType::ShogiOnly => "ShogiOnly",
+            BoardSetupType::ChessOnly => "ChessOnly",
+            BoardSetupType::Fair => "Fair",
+            BoardSetupType::ReversedFair => "ReversedFair",
         }
+        .to_string()
     }
 
-    pub fn add_result(&mut self, result: GameResult) {
-        self.total_games += 1;
-        match result.winner {
-            Some(PlayerId::Player1) => self.p1_wins += 1,
-            Some(PlayerId::Player2) => self.p2_wins += 1,
-            None => self.draws += 1,
-        }
-        self.games.push(result);
-        self.recalculate_averages();
-    }
-
-    fn recalculate_averages(&mut self) {
-        if self.games.is_empty() {
-            return;
-        }
-        let total_moves: usize = self.games.iter().map(|g| g.moves).sum();
-        let total_time: u128 = self.games.iter().map(|g| g.time_ms).sum();
-        self.avg_moves = total_moves as f64 / self.games.len() as f64;
-        self.avg_time_ms = total_time as f64 / self.games.len() as f64;
-    }
-}
-
-pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
-    let mut stats = SelfPlayStats::new();
-
-    // Store AI configuration
-    stats.ai1_strength = format!("{:?}", config.ai1_strength);
-    stats.ai2_strength = format!("{:?}", config.ai2_strength);
-    stats.board_setup = match config.board_setup {
-        BoardSetupType::StandardMixed => "StandardMixed",
-        BoardSetupType::ReversedMixed => "ReversedMixed",
-        BoardSetupType::ShogiOnly => "ShogiOnly",
-        BoardSetupType::ChessOnly => "ChessOnly",
-        BoardSetupType::Fair => "Fair",
-        BoardSetupType::ReversedFair => "ReversedFair",
-    }
-    .to_string();
-
-    for game_num in 1..=config.num_games {
-        let start_time = Instant::now();
-
-        // Create board
-        let board = match config.board_setup {
+    fn create_board(&self) -> crate::core::Board {
+        match self {
             BoardSetupType::StandardMixed => {
                 let map = crate::core::setup::get_standard_mixed_setup();
                 crate::core::setup::setup_from_strings(&map, true, false)
@@ -128,85 +57,198 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
                 let map = crate::core::setup::get_reversed_fair_setup();
                 crate::core::setup::setup_from_strings(&map, false, false)
             }
-        };
+        }
+    }
+}
 
-        // Create AI players
-        let p1: Box<dyn PlayerController> = Box::new(AlphaBetaAI::new(
-            PlayerId::Player1,
-            "AI-P1",
-            config.ai1_strength,
-        ));
-        let p2: Box<dyn PlayerController> = Box::new(AlphaBetaAI::new(
-            PlayerId::Player2,
-            "AI-P2",
-            config.ai2_strength,
-        ));
+#[derive(Clone, Copy)]
+pub struct SelfPlayConfig {
+    pub num_games: usize,
+    pub board_setup: BoardSetupType,
+    pub ai1_strength: AIStrength,
+    pub ai2_strength: AIStrength,
+    pub save_kifus: bool,
+}
 
-        // Run game silently
-        let mut game = Game::new(board);
-        game.perspective_mode = PerspectiveMode::Fixed(PlayerId::Player1);
+#[derive(Serialize, Deserialize)]
+struct GameResult {
+    winner: Option<PlayerId>,
+    moves: usize,
+    time_ms: u128,
+}
 
-        let (winner, move_count, thinking_data) = run_game_silent(&mut game, p1.as_ref(), p2.as_ref())?;
+pub struct SelfPlayStats {
+    pub total_games: usize,
+    pub p1_wins: usize,
+    pub p2_wins: usize,
+    pub draws: usize,
+    pub avg_moves: f64,
+    pub avg_time_ms: f64,
+    pub board_setup: String,
+    pub ai1_strength: String,
+    pub ai2_strength: String,
+}
 
-        let elapsed = start_time.elapsed();
-        let result = GameResult {
+impl SelfPlayStats {
+    fn new(board_setup: String, ai1_strength: AIStrength, ai2_strength: AIStrength) -> Self {
+        Self {
+            total_games: 0,
+            p1_wins: 0,
+            p2_wins: 0,
+            draws: 0,
+            avg_moves: 0.0,
+            avg_time_ms: 0.0,
+            board_setup,
+            ai1_strength: format!("{:?}", ai1_strength),
+            ai2_strength: format!("{:?}", ai2_strength),
+        }
+    }
+
+    fn add_result(&mut self, result: GameResult) {
+        self.total_games += 1;
+        match result.winner {
+            Some(PlayerId::Player1) => self.p1_wins += 1,
+            Some(PlayerId::Player2) => self.p2_wins += 1,
+            None => self.draws += 1,
+        }
+
+        // Update averages
+        let n = self.total_games as f64;
+        self.avg_moves = (self.avg_moves * (n - 1.0) + result.moves as f64) / n;
+        self.avg_time_ms = (self.avg_time_ms * (n - 1.0) + result.time_ms as f64) / n;
+    }
+}
+
+// Parallel self-play implementation
+pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
+    let mut stats = SelfPlayStats::new(
+        config.board_setup.to_string(),
+        config.ai1_strength,
+        config.ai2_strength,
+    );
+
+    println!("Starting {} games in parallel...", config.num_games);
+    println!(
+        "AI Strength: {:?} vs {:?}",
+        config.ai1_strength, config.ai2_strength
+    );
+    println!();
+
+    let completed = Arc::new(Mutex::new(0));
+
+    // Run games in parallel
+    let results: Vec<_> = (1..=config.num_games)
+        .into_par_iter()
+        .map(|game_num| {
+            let result = run_single_game(game_num, &config);
+
+            // Update progress counter
+            {
+                let mut count = completed.lock().unwrap();
+                *count += 1;
+                print!("\rCompleted: {}/{}", *count, config.num_games);
+                std::io::Write::flush(&mut std::io::stdout()).ok();
+            }
+
+            result
+        })
+        .collect();
+
+    println!("\n\nProcessing results...");
+
+    // Process results sequentially
+    for (idx, result) in results.into_iter().enumerate() {
+        let game_num = idx + 1;
+        let (game, winner, move_count, thinking_data, elapsed) = result?;
+
+        let game_result = GameResult {
             winner,
             moves: move_count,
             time_ms: elapsed.as_millis(),
         };
-        stats.add_result(result);
 
-        // Display detailed progress
-        execute!(
-            std::io::stdout(),
-            terminal::Clear(terminal::ClearType::All),
-            crossterm::cursor::MoveTo(0, 0)
-        )?;
-
-        print!("=== Self-Play Progress ===\r\n\r\n");
-        print!("Game {}/{} completed\r\n", game_num, config.num_games);
-        print!(
-            "Result: {} ({} moves, {:.1}s)\r\n\r\n",
-            match winner {
-                Some(PlayerId::Player1) => "P1 wins",
-                Some(PlayerId::Player2) => "P2 wins",
-                None => "Draw",
-            },
-            move_count,
-            elapsed.as_secs_f64()
-        );
-
-        print!("--- Current Statistics ---\r\n");
-        print!(
-            "P1 Wins: {} ({:.1}%)\r\n",
-            stats.p1_wins,
-            stats.p1_wins as f64 / stats.total_games as f64 * 100.0
-        );
-        print!(
-            "P2 Wins: {} ({:.1}%)\r\n",
-            stats.p2_wins,
-            stats.p2_wins as f64 / stats.total_games as f64 * 100.0
-        );
-        print!(
-            "Draws: {} ({:.1}%)\r\n",
-            stats.draws,
-            stats.draws as f64 / stats.total_games as f64 * 100.0
-        );
-        print!("Avg Moves: {:.1}\r\n", stats.avg_moves);
-        print!("Avg Time: {:.1}s\r\n\r\n", stats.avg_time_ms / 1000.0);
-
-        std::io::Write::flush(&mut std::io::stdout())?;
+        stats.add_result(game_result);
 
         // Save kifu if requested
         if config.save_kifus {
-            save_kifu(&game, game_num, &stats.board_setup, config.ai1_strength, config.ai2_strength, thinking_data)?;
+            save_kifu(
+                &game,
+                game_num,
+                &stats.board_setup,
+                config.ai1_strength,
+                config.ai2_strength,
+                thinking_data,
+            )?;
         }
     }
 
-    println!(); // New line after progress
+    // Display final statistics
+    execute!(
+        std::io::stdout(),
+        terminal::Clear(terminal::ClearType::All),
+        crossterm::cursor::MoveTo(0, 0)
+    )?;
+
+    println!("=== Self-Play Complete ===\n");
+    println!("Total Games: {}", stats.total_games);
+    println!(
+        "P1 Wins: {} ({:.1}%)",
+        stats.p1_wins,
+        stats.p1_wins as f64 / stats.total_games as f64 * 100.0
+    );
+    println!(
+        "P2 Wins: {} ({:.1}%)",
+        stats.p2_wins,
+        stats.p2_wins as f64 / stats.total_games as f64 * 100.0
+    );
+    println!(
+        "Draws: {} ({:.1}%)",
+        stats.draws,
+        stats.draws as f64 / stats.total_games as f64 * 100.0
+    );
+    println!("Avg Moves: {:.1}", stats.avg_moves);
+    println!("Avg Time: {:.1}s\n", stats.avg_time_ms / 1000.0);
+
     Ok(stats)
 }
 
+fn run_single_game(
+    game_num: usize,
+    config: &SelfPlayConfig,
+) -> anyhow::Result<(
+    Game,
+    Option<PlayerId>,
+    usize,
+    Vec<ThinkingInfo>,
+    std::time::Duration,
+)> {
+    let start_time = Instant::now();
+
+    // Create board
+    let board = config.board_setup.create_board();
+
+    // Create AI players
+    let p1: Box<dyn PlayerController> = Box::new(AlphaBetaAI::new(
+        PlayerId::Player1,
+        "AI-P1",
+        config.ai1_strength,
+    ));
+    let p2: Box<dyn PlayerController> = Box::new(AlphaBetaAI::new(
+        PlayerId::Player2,
+        "AI-P2",
+        config.ai2_strength,
+    ));
+
+    // Run game
+    let mut game = Game::new(board);
+    game.perspective_mode = PerspectiveMode::Fixed(PlayerId::Player1);
+
+    let (winner, move_count, thinking_data) = run_game_silent(&mut game, p1.as_ref(), p2.as_ref())?;
+
+    let elapsed = start_time.elapsed();
+
+    Ok((game, winner, move_count, thinking_data, elapsed))
+}
 fn run_game_silent(
     game: &mut Game,
     p1: &dyn PlayerController,
