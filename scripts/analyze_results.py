@@ -170,3 +170,29 @@ if __name__ == "__main__":
         # Display statistics for each game type
         for game_type in sorted(grouped_data.keys()):
             display_game_type_statistics(game_type, grouped_data[game_type])
+        
+        # Save to JSON
+        output_data = {}
+        for game_type, data in grouped_data.items():
+            total = data['total_games']
+            output_data[game_type] = {
+                'total_games': total,
+                'p1_wins': data['p1_wins'],
+                'p2_wins': data['p2_wins'],
+                'draws': data['draws'],
+                'p1_win_rate': (data['p1_wins'] / total * 100) if total > 0 else 0,
+                'p2_win_rate': (data['p2_wins'] / total * 100) if total > 0 else 0,
+                'draw_rate': (data['draws'] / total * 100) if total > 0 else 0,
+                'avg_moves': data['total_moves'] / total if total > 0 else 0,
+                'avg_time_s': data['total_time_ms'] / total / 1000 if total > 0 else 0,
+                'source_files': data['files'],
+                'board_setup': data['board_setup'],
+                'ai1_strength': data['ai1_strength'],
+                'ai2_strength': data['ai2_strength'],
+            }
+        
+        output_file = "analyze_results.json"
+        with open(output_file, 'w') as f:
+            json.dump(output_data, f, indent=2)
+        
+        print(f"\n✓ Results saved to: {output_file}")

@@ -389,7 +389,7 @@ fn display_progress(status: &[Option<bool>], total: usize) {
 
         // New line every 8 games
         if (idx + 1) % 8 == 0 {
-            println!();
+            print!("\r\n");
         }
     }
 
@@ -397,9 +397,9 @@ fn display_progress(status: &[Option<bool>], total: usize) {
     let completed = status.iter().filter(|&&s| s == Some(true)).count();
     let running = status.iter().filter(|&&s| s == Some(false)).count();
 
-    println!("\n");
-    println!("Running:   {} games", running);
-    println!("Completed: {}/{}", completed, total);
+    println!("\r");
+    println!("Running:   {} games\r", running);
+    println!("Completed: {}/{}\r", completed, total);
 
     std::io::Write::flush(&mut std::io::stdout()).ok();
 }
