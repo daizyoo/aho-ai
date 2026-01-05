@@ -6,11 +6,23 @@ use serde::{Deserialize, Serialize};
 pub mod replay;
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct ThinkingInfo {
+    pub move_number: usize,
+    pub player: String,
+    pub depth: usize,
+    pub score: i32,
+    pub nodes: usize,
+    pub time_ms: u128,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct KifuData {
     pub board_setup: String,
     pub player1_name: String,
     pub player2_name: String,
     pub moves: Vec<Move>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking_data: Option<Vec<ThinkingInfo>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -229,6 +241,7 @@ impl Game {
                 Ok(file) => {
                     let kifu_data = KifuData {
                         board_setup: self.board_setup.clone(),
+                        thinking_data: None,
                         player1_name: self.player1_name.clone(),
                         player2_name: self.player2_name.clone(),
                         moves: self.history.clone(),

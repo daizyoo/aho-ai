@@ -273,6 +273,7 @@ fn save_kifu(game: &Game, game_num: usize, board_setup: &str, ai1_strength: AISt
         player1_name: format!("AI ({:?})", ai1_strength),
         player2_name: format!("AI ({:?})", ai2_strength),
         moves: game.history.clone(),
+        thinking_data: None,
     };
 
     let file = std::fs::File::create(filename)?;
