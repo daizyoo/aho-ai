@@ -17,7 +17,7 @@ pub struct AlphaBetaAI {
     strength: AIStrength,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum AIStrength {
     Strong,
     Light,

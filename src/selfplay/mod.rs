@@ -39,6 +39,9 @@ pub struct SelfPlayStats {
     pub draws: usize,
     pub avg_moves: f64,
     pub avg_time_ms: f64,
+    pub ai1_strength: String,
+    pub ai2_strength: String,
+    pub board_setup: String,
     pub games: Vec<GameResult>,
 }
 
@@ -51,6 +54,9 @@ impl SelfPlayStats {
             draws: 0,
             avg_moves: 0.0,
             avg_time_ms: 0.0,
+            ai1_strength: String::new(),
+            ai2_strength: String::new(),
+            board_setup: String::new(),
             games: Vec::new(),
         }
     }
@@ -79,6 +85,18 @@ impl SelfPlayStats {
 
 pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
     let mut stats = SelfPlayStats::new();
+    
+    // Store AI configuration
+    stats.ai1_strength = format!("{:?}", config.ai1_strength);
+    stats.ai2_strength = format!("{:?}", config.ai2_strength);
+    stats.board_setup = match config.board_setup {
+        BoardSetupType::StandardMixed => "StandardMixed",
+        BoardSetupType::ReversedMixed => "ReversedMixed",
+        BoardSetupType::ShogiOnly => "ShogiOnly",
+        BoardSetupType::ChessOnly => "ChessOnly",
+        BoardSetupType::Fair => "Fair",
+        BoardSetupType::ReversedFair => "ReversedFair",
+    }.to_string();
 
     for game_num in 1..=config.num_games {
         let start_time = Instant::now();
