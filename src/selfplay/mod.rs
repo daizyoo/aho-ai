@@ -355,3 +355,31 @@ fn save_kifu(
     serde_json::to_writer(file, &kifu_data)?;
     Ok(())
 }
+
+// Display progress in columns
+fn display_progress(status: &[Option<bool>], total: usize) {
+    print!("\r\x1B[K"); // Clear line
+    
+    // Display games in rows of 8
+    for (idx, &state) in status.iter().enumerate() {
+        let game_num = idx + 1;
+        let symbol = match state {
+            None => "⏸",           // Not started
+            Some(false) => "▶",    // Running
+            Some(true) => "✓",     // Completed
+        };
+        
+        print!("G{:2}:{} ", game_num, symbol);
+        
+        // New line every 8 games
+        if (idx + 1) % 8 == 0 {
+            print!("\r\n");
+        }
+    }
+    
+    // Count completed
+    let completed = status.iter().filter(|&&s| s == Some(true)).count();
+    print!("\r\nCompleted: {}/{}", completed, total);
+    
+    std::io::Write::flush(&mut std::io::stdout()).ok();
+}
