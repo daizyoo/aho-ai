@@ -1,35 +1,28 @@
 {
-  "total_games": 1,
-  "p1_wins": 1,
-  "p2_wins": 0,
+  "total_games": 5,
+  "p1_wins": 3,
+  "p2_wins": 2,
   "features": {
     "promotion_rate": {
-      "p1_avg": 0.02702702702702703,
-      "p2_avg": 0,
-      "difference": 0.02702702702702703
+      "p1_avg": 0.12314814814814813,
+      "p2_avg": 0.09308450767637658,
+      "difference": 0.030063640471771555
     },
     "drop_rate": {
-      "p1_avg": 0.16216216216216217,
-      "p2_avg": 0,
-      "difference": 0.16216216216216217
+      "p1_avg": 0.27717864923747276,
+      "p2_avg": 0.19584890369636665,
+      "difference": 0.08132974554110611
     },
     "game_length": {
-      "p1_avg": 37.0,
-      "p2_avg": 0,
-      "difference": 37.0
+      "p1_avg": 122.33333333333333,
+      "p2_avg": 150.0,
+      "difference": 27.66666666666667
     },
     "early_aggression": {
-      "p1_avg": 1.0,
-      "p2_avg": 0,
-      "difference": 1.0
+      "p1_avg": 0.6666666666666666,
+      "p2_avg": 0.75,
+      "difference": 0.08333333333333337
     }
   },
-  "recommendations": [
-    {
-      "feature": "Hand Piece Value",
-      "current": "Hand pieces valued at piece_value * 1.1",
-      "suggestion": "Increase hand piece bonus (winners drop 16.2% of moves)",
-      "code": "eval.rs: Change HAND_PIECE_BONUS_MULTIPLIER from 1.1 to 1.2"
-    }
-  ]
+  "recommendations": []
 }

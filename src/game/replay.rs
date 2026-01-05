@@ -2,9 +2,12 @@ use crate::core::{Board, Move, PlayerId};
 use crate::display::{render_board, DisplayState};
 use crate::logic::apply_move;
 use crossterm::event::{self, Event, KeyCode};
+use crossterm::{execute, terminal};
+use std::io;
 use std::time::Duration;
 
 pub struct ReplayViewer {
+    kifu: crate::game::KifuData,
     history: Vec<Move>,
     boards: Vec<Board>,
     current_index: usize,
@@ -29,6 +32,7 @@ impl ReplayViewer {
         }
 
         Self {
+            kifu: kifu_data.clone(),
             history: kifu_data.moves,
             boards,
             current_index: 0,
@@ -84,11 +88,24 @@ impl ReplayViewer {
             current_player = current_player.opponent();
         }
 
+        // This function cannot initialize the `kifu` field correctly without `KifuData`.
+        // It's likely intended for testing or specific scenarios where `KifuData` isn't available.
+        // For now, we'll use a dummy KifuData.
         Self {
+            kifu: crate::game::KifuData::default(), // Placeholder
             history,
             boards,
             current_index: 0,
         }
+    }
+
+    pub fn from_kifu_path(path: &std::path::Path) -> anyhow::Result<Self> {
+        use std::fs::File;
+        use std::io::BufReader;
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        let kifu_data: crate::game::KifuData = serde_json::from_reader(reader)?;
+        Ok(Self::new(kifu_data))
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
@@ -112,18 +129,53 @@ impl ReplayViewer {
                 PlayerId::Player2
             };
 
+            execute!(
+                io::stdout(),
+                terminal::Clear(terminal::ClearType::All),
+                crossterm::cursor::MoveTo(0, 0)
+            )?;
+
+            // Display game info
+            print!("=== Kifu Replay ===\r\n");
+            print!("Setup: {}\r\n", self.kifu.board_setup);
+            print!(
+                "{} vs {}\r\n",
+                self.kifu.player1_name, self.kifu.player2_name
+            );
+
+            // Display winner
+            let total_moves = self.kifu.moves.len();
+            if total_moves > 0 {
+                let winner = if total_moves % 2 == 1 {
+                    &self.kifu.player1_name
+                } else {
+                    &self.kifu.player2_name
+                };
+                print!("Winner: {}\r\n", winner);
+            }
+            print!("\r\n");
+
+            print!(
+                "Move {}/{} | [←/→] Navigate | [q] Quit\r\n",
+                self.current_index, // Changed from current_move_index + 1
+                self.kifu.moves.len()
+            );
+            print!("\r\n");
+
             let mut state = DisplayState::default();
             state.perspective = PlayerId::Player1; // Fixed perspective for replay? Or auto? Let's use P1.
             state.last_move = last_move.clone();
             state.status_msg = Some(format!(
                 "Replay: Move {}/{} ({:?}) - [Only Standard/Fair supported?]",
                 self.current_index,
-                self.history.len(),
+                self.kifu.moves.len(), // Changed from self.history.len()
                 next_player
             ));
 
             render_board(board, &state);
-            println!("\r\nControls: [<-/p] Prev, [->/n] Next, [q] Quit");
+            // The original println!("\r\nControls: ...") is now replaced by the new print! statement above.
+            // If it was intended to be kept, it would be redundant.
+            // Based on the diff, it seems the new print! statement replaces the old status_msg and controls line.
 
             // Input
             if event::poll(Duration::from_millis(100))? {

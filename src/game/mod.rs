@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod replay;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct KifuData {
     pub board_setup: String,
     pub player1_name: String,
