@@ -23,6 +23,7 @@ pub struct Game {
     pub board_sync_rx: Option<std::sync::mpsc::Receiver<(Board, PlayerId)>>,
     pub perspective_mode: PerspectiveMode,
     pub history: Vec<Move>,
+    pub board_setup: String,
 }
 
 impl Game {
@@ -33,6 +34,18 @@ impl Game {
             board_sync_rx: None,
             perspective_mode: PerspectiveMode::AutoFlip,
             history: Vec::new(),
+            board_setup: "Unknown".to_string(),
+        }
+    }
+    
+    pub fn with_setup(board: Board, board_setup: String) -> Self {
+        Game {
+            board,
+            current_player: PlayerId::Player1,
+            board_sync_rx: None,
+            perspective_mode: PerspectiveMode::AutoFlip,
+            history: Vec::new(),
+            board_setup,
         }
     }
 
