@@ -6,6 +6,8 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::Duration;
 
+pub mod selection;
+
 pub async fn read_input_raw(default: &str, prompt: &str) -> anyhow::Result<String> {
     print!("{}: (Default: {}) \r\n> ", prompt, default);
     io::stdout().flush()?;

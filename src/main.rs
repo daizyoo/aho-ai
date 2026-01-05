@@ -210,8 +210,7 @@ async fn run_client(addr: &str) -> anyhow::Result<()> {
 }
 
 async fn run_local() -> anyhow::Result<()> {
-    use crate::core::setup_from_strings;
-    use crate::game::{Game, PerspectiveMode};
+    use crate::game::Game;
     use crossterm::event::{self, Event, KeyCode};
     use std::time::Duration;
 
@@ -265,165 +264,9 @@ async fn run_local() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let (p1, p2, perspective): (
-        Box<dyn PlayerController>,
-        Box<dyn PlayerController>,
-        PerspectiveMode,
-    ) = match p_choice {
-        "1" => (
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player1,
-                "Player1",
-            )),
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player2,
-                "Player2",
-            )),
-            PerspectiveMode::AutoFlip,
-        ),
-        "2" => (
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player1,
-                "Player1",
-            )),
-            Box::new(crate::player::ai::WeightedRandomAI::new(
-                PlayerId::Player2,
-                "WeightedAI",
-            )),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        "3" => (
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player1,
-                "Player1",
-            )),
-            Box::new(crate::player::ai::MinimaxAI::new(
-                PlayerId::Player2,
-                "MinimaxAI",
-            )),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        "4" => (
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player1,
-                "Player1",
-            )),
-            Box::new(crate::player::ai::AlphaBetaAI::new(
-                PlayerId::Player2,
-                "AlphaBeta-Light",
-                crate::player::ai::AIStrength::Light,
-            )),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        "5" => (
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player1,
-                "Player1",
-            )),
-            Box::new(crate::player::ai::AlphaBetaAI::new(
-                PlayerId::Player2,
-                "AlphaBeta-Strong",
-                crate::player::ai::AIStrength::Strong,
-            )),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        "6" => (
-            Box::new(crate::player::ai::AlphaBetaAI::new(
-                PlayerId::Player1,
-                "AlphaBeta-Strong-1",
-                crate::player::ai::AIStrength::Strong,
-            )),
-            Box::new(crate::player::ai::AlphaBetaAI::new(
-                PlayerId::Player2,
-                "AlphaBeta-Strong-2",
-                crate::player::ai::AIStrength::Strong,
-            )),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
+    let (p1, p2, perspective) = crate::ui::selection::select_player_controllers()?;
 
-        _ => (
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player1,
-                "Player1",
-            )),
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player2,
-                "Player2",
-            )),
-            PerspectiveMode::AutoFlip,
-        ),
-    };
-    // This line was part of the original code's structure, but the new block
-    // already returns the tuple directly from the match statement.
-    // Removing it to avoid a syntax error.
-    // (p1, p2, perspective)
-    // The match statement now directly assigns to (p1, p2, perspective)
-    // so this line is no longer needed.
-    // The original code had `let (mut p1, mut p2, perspective) = { ... };`
-    // where the block returned the tuple.
-    // The new code has `let (mut p1, mut p2, perspective) = match p_choice { ... };`
-    // where each match arm returns the tuple.
-    // So the final `(p1, p2, perspective)` is not needed.
-    // The instruction provided `(p1, p2, perspective)` at the end, which would be a syntax error.
-    // I will remove it to make the code syntactically correct.
-    // The instruction also had an extra `}` at the end of the `let` assignment, which I've corrected.
-    // The instruction's provided code block ends with `};` which is correct for the `let = match` syntax.
-    // The instruction's provided code block also had `(p1, p2, perspective)` after the closing `};`
-    // which is incorrect. I will remove that.
-
-    print!("\r\nSelect board setup:\r\n");
-    print!("1. Shogi (P1) vs Chess (P2)\r\n");
-    print!("2. Chess (P1) vs Shogi (P2)\r\n");
-    print!("3. Shogi vs Shogi\r\n");
-    print!("4. Chess vs Chess\r\n");
-    print!("5. Fair (Mixed Shogi/Chess)\r\n");
-    print!("6. Reversed Fair\r\n");
-
-    let b_choice = loop {
-        if event::poll(Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('1') => break "1",
-                    KeyCode::Char('2') => break "2",
-                    KeyCode::Char('3') => break "3",
-                    KeyCode::Char('4') => break "4",
-                    KeyCode::Char('5') => break "5",
-                    KeyCode::Char('6') => break "6",
-                    KeyCode::Char('q') => return Ok(()),
-                    _ => {}
-                }
-            }
-        }
-    };
-
-    // p1_shogi / p2_shogi determine piece parsing when 1-char symbols are used
-    // in fair setup, both are used, so we just set them based on majority or just true/false
-    let (board, setup_name) = match b_choice {
-        "1" => (
-            setup_from_strings(&crate::core::setup::get_standard_mixed_setup(), true, false),
-            "StandardMixed".to_string(),
-        ),
-        "2" => (
-            setup_from_strings(&crate::core::setup::get_reversed_mixed_setup(), false, true),
-            "ReversedMixed".to_string(),
-        ),
-        "3" => (
-            setup_from_strings(&crate::core::setup::get_shogi_setup(), true, true),
-            "ShogiOnly".to_string(),
-        ),
-        "4" => (
-            setup_from_strings(&crate::core::setup::get_chess_setup(), false, false),
-            "ChessOnly".to_string(),
-        ),
-        "5" => (
-            setup_from_strings(&crate::core::setup::get_fair_setup(), true, true),
-            "Fair".to_string(),
-        ),
-        _ => (
-            setup_from_strings(&crate::core::setup::get_reversed_fair_setup(), true, true),
-            "ReversedFair".to_string(),
-        ),
-    };
+    let (board, setup_name) = crate::ui::selection::select_board_setup()?;
 
     let mut game = Game::with_setup(board, setup_name);
     game.perspective_mode = perspective;

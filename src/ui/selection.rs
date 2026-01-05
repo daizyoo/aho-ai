@@ -1,0 +1,198 @@
+use crate::core::{Board, PlayerId};
+use crate::game::PerspectiveMode;
+use crate::player::PlayerController;
+use crossterm::event::{self, Event, KeyCode};
+use std::time::Duration;
+
+pub fn select_player_controllers() -> anyhow::Result<(
+    Box<dyn PlayerController>,
+    Box<dyn PlayerController>,
+    PerspectiveMode,
+)> {
+    print!("\r\nSelect game mode:\r\n");
+    print!("1. Human vs Human\r\n");
+    print!("2. Human vs AI (Weighted Random - Very Weak)\r\n");
+    print!("3. Human vs AI (Minimax - Weak)\r\n");
+    print!("4. Human vs AI (AlphaBeta - Light/Medium)\r\n");
+    print!("5. Human vs AI (AlphaBeta - Strong)\r\n");
+    print!("6. AI vs AI (Strong vs Strong)\r\n");
+
+    let p_choice = loop {
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('1') => break "1",
+                    KeyCode::Char('2') => break "2",
+                    KeyCode::Char('3') => break "3",
+                    KeyCode::Char('4') => break "4",
+                    KeyCode::Char('5') => break "5",
+                    KeyCode::Char('6') => break "6",
+                    KeyCode::Char('q') => return Err(anyhow::anyhow!("Canceled")),
+                    _ => {}
+                }
+            }
+        }
+    };
+
+    Ok(match p_choice {
+        "1" => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
+            )),
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player2,
+                "Player2",
+            )),
+            PerspectiveMode::AutoFlip,
+        ),
+        "2" => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
+            )),
+            Box::new(crate::player::ai::WeightedRandomAI::new(
+                PlayerId::Player2,
+                "WeightedAI",
+            )),
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        "3" => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
+            )),
+            Box::new(crate::player::ai::MinimaxAI::new(
+                PlayerId::Player2,
+                "MinimaxAI",
+            )),
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        "4" => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
+            )),
+            Box::new(crate::player::ai::AlphaBetaAI::new(
+                PlayerId::Player2,
+                "AlphaBeta-Light",
+                crate::player::ai::AIStrength::Light,
+            )),
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        "5" => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
+            )),
+            Box::new(crate::player::ai::AlphaBetaAI::new(
+                PlayerId::Player2,
+                "AlphaBeta-Strong",
+                crate::player::ai::AIStrength::Strong,
+            )),
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        "6" => (
+            Box::new(crate::player::ai::AlphaBetaAI::new(
+                PlayerId::Player1,
+                "AlphaBeta-Strong-1",
+                crate::player::ai::AIStrength::Strong,
+            )),
+            Box::new(crate::player::ai::AlphaBetaAI::new(
+                PlayerId::Player2,
+                "AlphaBeta-Strong-2",
+                crate::player::ai::AIStrength::Strong,
+            )),
+            PerspectiveMode::Fixed(PlayerId::Player1),
+        ),
+        _ => (
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player1,
+                "Player1",
+            )),
+            Box::new(crate::player::TuiController::new(
+                PlayerId::Player2,
+                "Player2",
+            )),
+            PerspectiveMode::AutoFlip,
+        ),
+    })
+}
+
+pub fn select_board_setup() -> anyhow::Result<(Board, String)> {
+    print!("\r\nSelect board setup:\r\n");
+    print!("1. Shogi (P1) vs Chess (P2)\r\n");
+    print!("2. Chess (P1) vs Shogi (P2)\r\n");
+    print!("3. Shogi vs Shogi\r\n");
+    print!("4. Chess vs Chess\r\n");
+    print!("5. Fair (Mixed Shogi/Chess)\r\n");
+    print!("6. Reversed Fair\r\n");
+
+    let b_choice = loop {
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('1') => break "1",
+                    KeyCode::Char('2') => break "2",
+                    KeyCode::Char('3') => break "3",
+                    KeyCode::Char('4') => break "4",
+                    KeyCode::Char('5') => break "5",
+                    KeyCode::Char('6') => break "6",
+                    KeyCode::Char('q') => return Err(anyhow::anyhow!("Canceled")),
+                    _ => {}
+                }
+            }
+        }
+    };
+
+    Ok(match b_choice {
+        "1" => (
+            crate::core::setup::setup_from_strings(
+                &crate::core::setup::get_standard_mixed_setup(),
+                true,
+                false,
+            ),
+            "StandardMixed".to_string(),
+        ),
+        "2" => (
+            crate::core::setup::setup_from_strings(
+                &crate::core::setup::get_reversed_mixed_setup(),
+                false,
+                true,
+            ),
+            "ReversedMixed".to_string(),
+        ),
+        "3" => (
+            crate::core::setup::setup_from_strings(
+                &crate::core::setup::get_shogi_setup(),
+                true,
+                true,
+            ),
+            "ShogiOnly".to_string(),
+        ),
+        "4" => (
+            crate::core::setup::setup_from_strings(
+                &crate::core::setup::get_chess_setup(),
+                false,
+                false,
+            ),
+            "ChessOnly".to_string(),
+        ),
+        "5" => (
+            crate::core::setup::setup_from_strings(
+                &crate::core::setup::get_fair_setup(),
+                true,
+                true,
+            ),
+            "Fair".to_string(),
+        ),
+        _ => (
+            crate::core::setup::setup_from_strings(
+                &crate::core::setup::get_reversed_fair_setup(),
+                true,
+                true,
+            ),
+            "ReversedFair".to_string(),
+        ),
+    })
+}
