@@ -269,7 +269,7 @@ async fn run_local() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let (mut p1, mut p2, perspective): (
+    let (p1, p2, perspective): (
         Box<dyn PlayerController>,
         Box<dyn PlayerController>,
         PerspectiveMode,

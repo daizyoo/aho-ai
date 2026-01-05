@@ -19,7 +19,6 @@ pub enum PerspectiveMode {
 
 pub struct Game {
     pub board: Board,
-    pub initial_board: Board,
     pub current_player: PlayerId,
     pub board_sync_rx: Option<std::sync::mpsc::Receiver<(Board, PlayerId)>>,
     pub perspective_mode: PerspectiveMode,
@@ -29,7 +28,6 @@ pub struct Game {
 impl Game {
     pub fn new(board: Board) -> Self {
         Game {
-            initial_board: board.clone(),
             board,
             current_player: PlayerId::Player1,
             board_sync_rx: None,
