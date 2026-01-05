@@ -95,14 +95,6 @@ impl AlphaBetaAI {
             elapsed.as_millis(),
         ));
 
-        // Save thinking data
-        let elapsed = start_time.elapsed();
-        *self.last_thinking.borrow_mut() = Some((
-            final_depth,
-            final_score,
-            *self.nodes_evaluated.borrow(),
-            elapsed.as_millis(),
-        ));
 
 
         best_move

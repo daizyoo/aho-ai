@@ -1,5 +1,5 @@
 use crate::core::PlayerId;
-use crate::game::{Game, KifuData, PerspectiveMode};
+use crate::game::{Game, KifuData, PerspectiveMode, ThinkingInfo};
 use crate::player::ai::{AIStrength, AlphaBetaAI};
 use crate::player::PlayerController;
 use crossterm::{execute, terminal};
