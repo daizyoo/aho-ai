@@ -53,7 +53,7 @@ impl AlphaBetaAI {
         };
 
         for depth in 1..=max_depth {
-            let _score = self.negamax(board, depth, alpha, beta, self.player_id);
+            let score = self.negamax(board, depth, alpha, beta, self.player_id);
 
             // Check time
             if start_time.elapsed() > self.time_limit {
@@ -65,6 +65,15 @@ impl AlphaBetaAI {
             if let Some((_entry, mv)) = self.tt.borrow().get(hash) {
                 if let Some(m) = mv {
                     best_move = Some(m);
+                    
+                    // Display thinking info
+                    if std::env::var("VERBOSE_AI").is_ok() {
+                        print!(
+                            " [d={} s={} n={}]",
+                            depth, score, self.nodes_evaluated.borrow()
+                        );
+                        std::io::Write::flush(&mut std::io::stdout()).ok();
+                    }
                 }
             }
         }
