@@ -129,30 +129,41 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
         config.ai2_strength,
     );
 
-    println!("Starting {} games in parallel...", config.num_games);
+    let mode = if config.use_parallel { "parallel" } else { "sequential" };
+    println!("Starting {} games ({} mode)...", config.num_games, mode);
     println!(
         "AI Strength: {:?} vs {:?}",
         config.ai1_strength, config.ai2_strength
     );
     println!();
 
-    let game_status = Arc::new(Mutex::new(vec![None; config.num_games]));
+    let results: Vec<_> = if config.use_parallel {
+        // Parallel execution with progress display
+        let game_status = Arc::new(Mutex::new(vec![None; config.num_games]));
+        
+        (1..=config.num_games)
+            .into_par_iter()
+            .map(|game_num| {
+                let result = run_single_game(game_num, &config);
 
-    // Run games in parallel
-    let results: Vec<_> = (1..=config.num_games)
-        .into_par_iter()
-        .map(|game_num| {
-            let result = run_single_game(game_num, &config);
-
-            // Update progress
-            {
-                let mut status = game_status.lock().unwrap();
-                status[game_num - 1] = Some(true);
-                display_progress(&status, config.num_games);
-            }
-            result
-        })
-        .collect();
+                // Update progress
+                {
+                    let mut status = game_status.lock().unwrap();
+                    status[game_num - 1] = Some(true);
+                    display_progress(&status, config.num_games);
+                }
+                result
+            })
+            .collect()
+    } else {
+        // Sequential execution with simple counter
+        (1..=config.num_games)
+            .map(|game_num| {
+                println!("Running game {}/{}...", game_num, config.num_games);
+                run_single_game(game_num, &config)
+            })
+            .collect()
+    };
 
     println!("\n\nProcessing results...");
 
