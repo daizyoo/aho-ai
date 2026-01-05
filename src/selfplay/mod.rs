@@ -380,35 +380,15 @@ fn save_kifu(
     Ok(())
 }
 
-// Display progress in list format
+// Display progress as simple counter (reliable in parallel execution)
 fn display_progress(status: &[Option<bool>], total: usize) {
-    // Clear screen and move cursor to top using ANSI escape sequences
-    // \x1B[2J = clear entire screen
-    // \x1B[H = move cursor to home (0,0)
-    print!("\x1B[2J\x1B[H");
-    std::io::Write::flush(&mut std::io::stdout()).ok();
-
-    println!("=== Self-Play Progress ===\n");
-
-    // Display games in list format
-    for (idx, &state) in status.iter().enumerate() {
-        let game_num = idx + 1;
-        let status_text = match state {
-            None => "Waiting...".to_string(),
-            Some(false) => "Running...".to_string(),
-            Some(true) => "✓ Complete".to_string(),
-        };
-
-        println!("Game {:2}: {}", game_num, status_text);
-    }
-
-    // Count completed and running
     let completed = status.iter().filter(|&&s| s == Some(true)).count();
     let running = status.iter().filter(|&&s| s == Some(false)).count();
-
-    println!("\r\n");
-    println!("Running:   {} games", running);
-    println!("Completed: {}/{}", completed, total);
-
+    
+    // Clear line and show simple progress
+    print!("\r\x1B[K");
+    print!("Progress: {} running, {} completed / {} total ({:.1}%)", 
+           running, completed, total, (completed as f64 / total as f64) * 100.0);
     std::io::Write::flush(&mut std::io::stdout()).ok();
 }
+```
