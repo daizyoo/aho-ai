@@ -85,7 +85,7 @@ impl SelfPlayStats {
 
 pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
     let mut stats = SelfPlayStats::new();
-    
+
     // Store AI configuration
     stats.ai1_strength = format!("{:?}", config.ai1_strength);
     stats.ai2_strength = format!("{:?}", config.ai2_strength);
@@ -96,7 +96,8 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
         BoardSetupType::ChessOnly => "ChessOnly",
         BoardSetupType::Fair => "Fair",
         BoardSetupType::ReversedFair => "ReversedFair",
-    }.to_string();
+    }
+    .to_string();
 
     for game_num in 1..=config.num_games {
         let start_time = Instant::now();
@@ -269,6 +270,8 @@ fn save_kifu(game: &Game, game_num: usize, board_setup: &str) -> anyhow::Result<
 
     let kifu_data = KifuData {
         board_setup: board_setup.to_string(),
+        player1_name: "AI (P1)".to_string(),
+        player2_name: "AI (P2)".to_string(),
         moves: game.history.clone(),
     };
 

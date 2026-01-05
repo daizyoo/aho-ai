@@ -8,6 +8,8 @@ pub mod replay;
 #[derive(Serialize, Deserialize)]
 pub struct KifuData {
     pub board_setup: String,
+    pub player1_name: String,
+    pub player2_name: String,
     pub moves: Vec<Move>,
 }
 
@@ -24,6 +26,8 @@ pub struct Game {
     pub perspective_mode: PerspectiveMode,
     pub history: Vec<Move>,
     pub board_setup: String,
+    pub player1_name: String,
+    pub player2_name: String,
 }
 
 impl Game {
@@ -35,9 +39,11 @@ impl Game {
             perspective_mode: PerspectiveMode::AutoFlip,
             history: Vec::new(),
             board_setup: "Unknown".to_string(),
+            player1_name: "Player1".to_string(),
+            player2_name: "Player2".to_string(),
         }
     }
-    
+
     pub fn with_setup(board: Board, board_setup: String) -> Self {
         Game {
             board,
@@ -46,6 +52,8 @@ impl Game {
             perspective_mode: PerspectiveMode::AutoFlip,
             history: Vec::new(),
             board_setup,
+            player1_name: "Player1".to_string(),
+            player2_name: "Player2".to_string(),
         }
     }
 
@@ -221,6 +229,8 @@ impl Game {
                 Ok(file) => {
                     let kifu_data = KifuData {
                         board_setup: self.board_setup.clone(),
+                        player1_name: self.player1_name.clone(),
+                        player2_name: self.player2_name.clone(),
                         moves: self.history.clone(),
                     };
                     // Minified JSON (not pretty) to keep it lightweight
