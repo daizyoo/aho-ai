@@ -62,19 +62,50 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         kifu_path = sys.argv[1]
     else:
-        # Find most recent kifu with thinking data
+        # Find kifu files with thinking data
         kifu_dir = Path("selfplay_kifu")
+        if not kifu_dir.exists():
+            print(f"Directory {kifu_dir} not found")
+            sys.exit(1)
+            
         kifus = sorted(kifu_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
         
+        # Filter files with thinking data
+        kifus_with_thinking = []
         for kifu_file in kifus:
-            with open(kifu_file) as f:
-                data = json.load(f)
-            if data.get('thinking_data'):
-                kifu_path = str(kifu_file)
-                break
-        else:
+            try:
+                with open(kifu_file) as f:
+                    data = json.load(f)
+                if data.get('thinking_data'):
+                    kifus_with_thinking.append(kifu_file)
+            except:
+                continue
+        
+        if not kifus_with_thinking:
             print("No kifu files with thinking data found")
             sys.exit(1)
+        
+        # Display menu
+        print("Available kifu files with thinking data:\n")
+        for idx, kifu_file in enumerate(kifus_with_thinking[:20], 1):  # Show max 20
+            with open(kifu_file) as f:
+                data = json.load(f)
+            print(f"{idx:2}. {kifu_file.name}")
+            print(f"    {data['player1_name']} vs {data['player2_name']}")
+            print(f"    Moves: {len(data['moves'])}, Thinking data: {len(data.get('thinking_data', []))}")
+            print()
+        
+        # Get user selection
+        try:
+            choice = int(input(f"Select file (1-{len(kifus_with_thinking[:20])}): "))
+            if 1 <= choice <= len(kifus_with_thinking[:20]):
+                kifu_path = str(kifus_with_thinking[choice - 1])
+            else:
+                print("Invalid selection")
+                sys.exit(1)
+        except (ValueError, KeyboardInterrupt):
+            print("\nCancelled")
+            sys.exit(1)
     
-    print(f"Analyzing: {kifu_path}")
+    print(f"\nAnalyzing: {kifu_path}")
     plot_thinking_data(kifu_path)

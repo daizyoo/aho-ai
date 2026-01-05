@@ -149,8 +149,6 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
                 status[game_num - 1] = Some(true);
                 display_progress(&status, config.num_games);
             }
-            }
-
             result
         })
         .collect();
