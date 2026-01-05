@@ -12,16 +12,19 @@ pub struct ReplayViewer {
 
 impl ReplayViewer {
     pub fn new(kifu_data: crate::game::KifuData) -> Self {
-        // Pre-calculate all board states using the saved initial board
+        // Reconstruct initial board from board_setup string
+        let board = Self::board_from_setup(&kifu_data.board_setup);
+
+        // Pre-calculate all board states
         let mut boards = Vec::new();
-        let mut board = kifu_data.initial_board;
+        let mut current_board = board;
         let mut current_player = PlayerId::Player1;
 
-        boards.push(board.clone());
+        boards.push(current_board.clone());
 
         for mv in &kifu_data.moves {
-            board = apply_move(&board, mv, current_player);
-            boards.push(board.clone());
+            current_board = apply_move(&current_board, mv, current_player);
+            boards.push(current_board.clone());
             current_player = current_player.opponent();
         }
 
@@ -29,6 +32,42 @@ impl ReplayViewer {
             history: kifu_data.moves,
             boards,
             current_index: 0,
+        }
+    }
+
+    fn board_from_setup(setup: &str) -> Board {
+        use crate::core::setup;
+
+        match setup {
+            "StandardMixed" => {
+                let map = setup::get_standard_mixed_setup();
+                setup::setup_from_strings(&map, true, false)
+            }
+            "ReversedMixed" => {
+                let map = setup::get_reversed_mixed_setup();
+                setup::setup_from_strings(&map, false, true)
+            }
+            "ShogiOnly" => {
+                let map = setup::get_shogi_setup();
+                setup::setup_from_strings(&map, true, true)
+            }
+            "ChessOnly" => {
+                let map = setup::get_chess_setup();
+                setup::setup_from_strings(&map, false, false)
+            }
+            "Fair" => {
+                let map = setup::get_fair_setup();
+                setup::setup_from_strings(&map, true, true)
+            }
+            "ReversedFair" => {
+                let map = setup::get_reversed_fair_setup();
+                setup::setup_from_strings(&map, false, false)
+            }
+            _ => {
+                // Default to Fair if unknown
+                let map = setup::get_fair_setup();
+                setup::setup_from_strings(&map, true, true)
+            }
         }
     }
 

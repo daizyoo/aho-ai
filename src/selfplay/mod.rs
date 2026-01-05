@@ -198,7 +198,7 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
 
         // Save kifu if requested
         if config.save_kifus {
-            save_kifu(&game, game_num)?;
+            save_kifu(&game, game_num, &stats.board_setup)?;
         }
     }
 
@@ -256,7 +256,7 @@ fn run_game_silent(
     }
 }
 
-fn save_kifu(game: &Game, game_num: usize) -> anyhow::Result<()> {
+fn save_kifu(game: &Game, game_num: usize, board_setup: &str) -> anyhow::Result<()> {
     let kifu_dir = "selfplay_kifu";
     std::fs::create_dir_all(kifu_dir)?;
 
@@ -268,7 +268,7 @@ fn save_kifu(game: &Game, game_num: usize) -> anyhow::Result<()> {
     );
 
     let kifu_data = KifuData {
-        initial_board: game.initial_board.clone(),
+        board_setup: board_setup.to_string(),
         moves: game.history.clone(),
     };
 

@@ -7,7 +7,7 @@ pub mod replay;
 
 #[derive(Serialize, Deserialize)]
 pub struct KifuData {
-    pub initial_board: Board,
+    pub board_setup: String,
     pub moves: Vec<Move>,
 }
 
@@ -209,7 +209,7 @@ impl Game {
             match std::fs::File::create(&filepath) {
                 Ok(file) => {
                     let kifu_data = KifuData {
-                        initial_board: self.initial_board.clone(),
+                        board_setup: "Unknown".to_string(),  // TODO: Track board setup
                         moves: self.history.clone(),
                     };
                     // Minified JSON (not pretty) to keep it lightweight
