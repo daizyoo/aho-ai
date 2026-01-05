@@ -1,27 +1,27 @@
 {
   "total_games": 5,
-  "p1_wins": 3,
-  "p2_wins": 2,
+  "p1_wins": 1,
+  "p2_wins": 4,
   "features": {
     "promotion_rate": {
-      "p1_avg": 0.10651927437641724,
-      "p2_avg": 0.08848968729208251,
-      "difference": 0.018029587084334733
+      "p1_avg": 0.08139534883720931,
+      "p2_avg": 0.0956741922643925,
+      "difference": 0.014278843427183191
     },
     "drop_rate": {
-      "p1_avg": 0.2643290649593171,
-      "p2_avg": 0.23365174413078604,
-      "difference": 0.03067732082853103
+      "p1_avg": 0.11627906976744186,
+      "p2_avg": 0.20294930803710667,
+      "difference": 0.08667023826966481
     },
     "game_length": {
-      "p1_avg": 113.0,
-      "p2_avg": 146.5,
-      "difference": 33.5
+      "p1_avg": 86.0,
+      "p2_avg": 86.75,
+      "difference": 0.75
     },
     "early_aggression": {
-      "p1_avg": 0.6666666666666666,
-      "p2_avg": 0.75,
-      "difference": 0.08333333333333337
+      "p1_avg": 0.8,
+      "p2_avg": 0.8,
+      "difference": 0.0
     }
   },
   "recommendations": []
