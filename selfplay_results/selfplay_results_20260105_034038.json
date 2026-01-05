@@ -1,0 +1,135 @@
+{
+  "total_games": 25,
+  "p1_wins": 24,
+  "p2_wins": 0,
+  "draws": 1,
+  "avg_moves": 75.92,
+  "avg_time_ms": 416203.4,
+  "games": [
+    {
+      "winner": "Player1",
+      "moves": 65,
+      "time_ms": 204162
+    },
+    {
+      "winner": "Player1",
+      "moves": 75,
+      "time_ms": 277075
+    },
+    {
+      "winner": "Player1",
+      "moves": 37,
+      "time_ms": 128613
+    },
+    {
+      "winner": null,
+      "moves": 500,
+      "time_ms": 849094
+    },
+    {
+      "winner": "Player1",
+      "moves": 47,
+      "time_ms": 340222
+    },
+    {
+      "winner": "Player1",
+      "moves": 21,
+      "time_ms": 150140
+    },
+    {
+      "winner": "Player1",
+      "moves": 445,
+      "time_ms": 4678443
+    },
+    {
+      "winner": "Player1",
+      "moves": 39,
+      "time_ms": 305619
+    },
+    {
+      "winner": "Player1",
+      "moves": 57,
+      "time_ms": 268576
+    },
+    {
+      "winner": "Player1",
+      "moves": 39,
+      "time_ms": 233650
+    },
+    {
+      "winner": "Player1",
+      "moves": 45,
+      "time_ms": 363795
+    },
+    {
+      "winner": "Player1",
+      "moves": 25,
+      "time_ms": 110571
+    },
+    {
+      "winner": "Player1",
+      "moves": 55,
+      "time_ms": 250579
+    },
+    {
+      "winner": "Player1",
+      "moves": 29,
+      "time_ms": 117455
+    },
+    {
+      "winner": "Player1",
+      "moves": 47,
+      "time_ms": 222670
+    },
+    {
+      "winner": "Player1",
+      "moves": 37,
+      "time_ms": 184844
+    },
+    {
+      "winner": "Player1",
+      "moves": 29,
+      "time_ms": 240058
+    },
+    {
+      "winner": "Player1",
+      "moves": 45,
+      "time_ms": 287576
+    },
+    {
+      "winner": "Player1",
+      "moves": 61,
+      "time_ms": 487181
+    },
+    {
+      "winner": "Player1",
+      "moves": 15,
+      "time_ms": 38176
+    },
+    {
+      "winner": "Player1",
+      "moves": 57,
+      "time_ms": 171287
+    },
+    {
+      "winner": "Player1",
+      "moves": 55,
+      "time_ms": 186837
+    },
+    {
+      "winner": "Player1",
+      "moves": 35,
+      "time_ms": 125334
+    },
+    {
+      "winner": "Player1",
+      "moves": 21,
+      "time_ms": 142879
+    },
+    {
+      "winner": "Player1",
+      "moves": 17,
+      "time_ms": 40249
+    }
+  ]
+}
