@@ -248,6 +248,19 @@ fn run_game_silent(
         std::io::Write::flush(&mut std::io::stdout())?;
 
         if let Some(chosen_move) = controller.choose_move(&game.board, &legal_moves) {
+            // Collect thinking data from AI
+            let ai_ptr = controller as *const dyn crate::player::PlayerController as *const AlphaBetaAI;
+            if let Some((depth, score, nodes, time_ms)) = unsafe { (*ai_ptr).last_thinking.borrow().clone() } {
+                thinking_data.push(ThinkingInfo {
+                    move_number: move_count + 1,
+                    player: format!("{:?}", current_player),
+                    depth,
+                    score,
+                    nodes,
+                    time_ms,
+                });
+            }
+
             game.board = crate::logic::apply_move(&game.board, &chosen_move, current_player);
             game.history.push(chosen_move);
             game.current_player = current_player.opponent();
