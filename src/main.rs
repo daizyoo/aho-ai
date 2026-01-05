@@ -707,6 +707,7 @@ async fn run_selfplay() -> anyhow::Result<()> {
         ai2_strength,
         board_setup,
         save_kifus: true,
+        use_parallel: true,  // Default to parallel
     };
 
     let stats = crate::selfplay::run_selfplay(config)?;
