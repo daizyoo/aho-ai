@@ -140,20 +140,23 @@ impl ReplayViewer {
             render_board(board, &state);
 
             // Display game info AFTER board
-            println!("\r");
-            println!("=== Kifu Replay ===");
-            println!("Setup: {}", self.kifu.board_setup);
-            println!("{} vs {}", self.kifu.player1_name, self.kifu.player2_name);
+            print!("\r\n");
+            print!("=== Kifu Replay ===\r\n");
+            print!("Setup: {}\r\n", self.kifu.board_setup);
+            print!(
+                "{} vs {}\r\n",
+                self.kifu.player1_name, self.kifu.player2_name
+            );
 
             // Display winner
             let total_moves = self.kifu.moves.len();
             if total_moves > 0 {
-                let winner = if total_moves % 2 == 1 {
-                    &self.kifu.player1_name
+                let (winner_name, winner_id) = if total_moves % 2 == 1 {
+                    (&self.kifu.player1_name, "Player1")
                 } else {
-                    &self.kifu.player2_name
+                    (&self.kifu.player2_name, "Player2")
                 };
-                println!("Winner: {}", winner);
+                print!("Winner: {} ({})\r\n", winner_name, winner_id);
             }
 
             println!(
