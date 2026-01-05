@@ -31,10 +31,12 @@ impl PlayerController for TuiController {
     }
 
     fn choose_move(&self, board: &Board, legal_moves_list: &[Move]) -> Option<Move> {
-        let mut state = DisplayState::default();
-        state.perspective = self.player_id;
-        state.last_move = board.last_move.clone();
-        state.status_msg = Some(format!("{}'s turn ({:?})", self.name, self.player_id));
+        let mut state = DisplayState {
+            perspective: self.player_id,
+            last_move: board.last_move.clone(),
+            status_msg: Some(format!("{}'s turn ({:?})", self.name, self.player_id)),
+            ..Default::default()
+        };
 
         // 前回位置があれば復元、なければキングに合わせる
         let cached_pos = *self.last_cursor.borrow();
@@ -66,10 +68,8 @@ impl PlayerController for TuiController {
                                 if state.cursor.y > 0 {
                                     state.cursor.y -= 1;
                                 }
-                            } else {
-                                if state.cursor.y < board.height - 1 {
-                                    state.cursor.y += 1;
-                                }
+                            } else if state.cursor.y < board.height - 1 {
+                                state.cursor.y += 1;
                             }
                             *self.last_cursor.borrow_mut() = Some(state.cursor);
                         }
@@ -78,10 +78,8 @@ impl PlayerController for TuiController {
                                 if state.cursor.y < board.height - 1 {
                                     state.cursor.y += 1;
                                 }
-                            } else {
-                                if state.cursor.y > 0 {
-                                    state.cursor.y -= 1;
-                                }
+                            } else if state.cursor.y > 0 {
+                                state.cursor.y -= 1;
                             }
                             *self.last_cursor.borrow_mut() = Some(state.cursor);
                         }
@@ -99,10 +97,8 @@ impl PlayerController for TuiController {
                                     if state.cursor.x > 0 {
                                         state.cursor.x -= 1;
                                     }
-                                } else {
-                                    if state.cursor.x < board.width - 1 {
-                                        state.cursor.x += 1;
-                                    }
+                                } else if state.cursor.x < board.width - 1 {
+                                    state.cursor.x += 1;
                                 }
                                 *self.last_cursor.borrow_mut() = Some(state.cursor);
                             }
@@ -120,10 +116,8 @@ impl PlayerController for TuiController {
                                     if state.cursor.x < board.width - 1 {
                                         state.cursor.x += 1;
                                     }
-                                } else {
-                                    if state.cursor.x > 0 {
-                                        state.cursor.x -= 1;
-                                    }
+                                } else if state.cursor.x > 0 {
+                                    state.cursor.x -= 1;
                                 }
                                 *self.last_cursor.borrow_mut() = Some(state.cursor);
                             }
@@ -131,12 +125,10 @@ impl PlayerController for TuiController {
                         KeyCode::Char('p') => {
                             if state.hand_mode {
                                 state.hand_mode = false;
-                            } else {
-                                if let Some(hand) = board.hand.get(&self.player_id) {
-                                    if !hand.values().all(|&v| v == 0) {
-                                        state.hand_mode = true;
-                                        state.hand_index = 0;
-                                    }
+                            } else if let Some(hand) = board.hand.get(&self.player_id) {
+                                if !hand.values().all(|&v| v == 0) {
+                                    state.hand_mode = true;
+                                    state.hand_index = 0;
                                 }
                             }
                         }

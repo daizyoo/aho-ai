@@ -18,19 +18,21 @@ pub enum BoardSetupType {
     ReversedFair,
 }
 
-impl BoardSetupType {
-    fn to_string(&self) -> String {
-        match self {
+impl std::fmt::Display for BoardSetupType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
             BoardSetupType::StandardMixed => "StandardMixed",
             BoardSetupType::ReversedMixed => "ReversedMixed",
             BoardSetupType::ShogiOnly => "ShogiOnly",
             BoardSetupType::ChessOnly => "ChessOnly",
             BoardSetupType::Fair => "Fair",
             BoardSetupType::ReversedFair => "ReversedFair",
-        }
-        .to_string()
+        };
+        write!(f, "{}", s)
     }
+}
 
+impl BoardSetupType {
     fn create_board(&self) -> crate::core::Board {
         match self {
             BoardSetupType::StandardMixed => {
@@ -121,6 +123,14 @@ impl SelfPlayStats {
     }
 }
 
+pub struct GameExecutionResult {
+    pub game: Game,
+    pub winner: Option<PlayerId>,
+    pub move_count: usize,
+    pub thinking_data: Vec<ThinkingInfo>,
+    pub duration: std::time::Duration,
+}
+
 // Parallel self-play implementation
 pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
     // Configure thread pool for optimal performance
@@ -181,12 +191,12 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
     // Process results sequentially
     for (idx, result) in results.into_iter().enumerate() {
         let game_num = idx + 1;
-        let (game, winner, move_count, thinking_data, elapsed) = result?;
+        let exec_result = result?;
 
         let game_result = GameResult {
-            winner,
-            moves: move_count,
-            time_ms: elapsed.as_millis(),
+            winner: exec_result.winner,
+            moves: exec_result.move_count,
+            time_ms: exec_result.duration.as_millis(),
         };
 
         stats.add_result(game_result);
@@ -194,12 +204,12 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
         // Save kifu if requested
         if config.save_kifus {
             save_kifu(
-                &game,
+                &exec_result.game,
                 game_num,
                 &stats.board_setup,
                 config.ai1_strength,
                 config.ai2_strength,
-                thinking_data,
+                exec_result.thinking_data,
             )?;
         }
     }
@@ -238,13 +248,7 @@ fn run_single_game(
     _game_num: usize,
     config: &SelfPlayConfig,
     silent: bool,
-) -> anyhow::Result<(
-    Game,
-    Option<PlayerId>,
-    usize,
-    Vec<ThinkingInfo>,
-    std::time::Duration,
-)> {
+) -> anyhow::Result<GameExecutionResult> {
     let start_time = Instant::now();
 
     // Create board
@@ -271,7 +275,13 @@ fn run_single_game(
 
     let elapsed = start_time.elapsed();
 
-    Ok((game, winner, move_count, thinking_data, elapsed))
+    Ok(GameExecutionResult {
+        game,
+        winner,
+        move_count,
+        thinking_data,
+        duration: elapsed,
+    })
 }
 fn run_game_silent(
     game: &mut Game,
@@ -325,7 +335,7 @@ fn run_game_silent(
             let ai_ptr =
                 controller as *const dyn crate::player::PlayerController as *const AlphaBetaAI;
             if let Some((depth, score, nodes, time_ms)) =
-                unsafe { (*ai_ptr).last_thinking.borrow().clone() }
+                unsafe { *(*ai_ptr).last_thinking.borrow() }
             {
                 // IMPORTANT: score is from the AI's perspective (always positive = good for AI)
                 // We need to convert to Player1's perspective for consistent analysis

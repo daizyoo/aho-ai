@@ -251,19 +251,12 @@ async fn run_local() -> anyhow::Result<()> {
         }
 
         // Loop to allow browsing multiple kifus
-        loop {
-            if let Some(path) = select_kifu_file(kifu_dir)? {
-                let file = std::fs::File::open(&path)?;
-                let kifu_data: crate::game::KifuData = serde_json::from_reader(file)?;
+        while let Some(path) = select_kifu_file(kifu_dir)? {
+            let file = std::fs::File::open(&path)?;
+            let kifu_data: crate::game::KifuData = serde_json::from_reader(file)?;
 
-                let mut viewer = crate::game::replay::ReplayViewer::new(kifu_data);
-                viewer.run()?;
-
-                // After replay ends, loop continues to show selection again
-            } else {
-                // User pressed 'q' to quit selection
-                break;
-            }
+            let mut viewer = crate::game::replay::ReplayViewer::new(kifu_data);
+            viewer.run()?;
         }
 
         return Ok(());
@@ -537,10 +530,7 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
     files_with_labels.reverse();
 
     if files_with_labels.is_empty() {
-        print!(
-            "No kifu files found. Press any key to return.
-"
-        );
+        println!("No kifu files found. Press any key to return.");
         loop {
             if event::poll(Duration::from_millis(100))? {
                 if let Event::Key(_) = event::read()? {
@@ -574,9 +564,7 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
             if let Event::Key(key) = event::read()? {
                 match key.code {
                     KeyCode::Up | KeyCode::Char('k') => {
-                        if selected_index > 0 {
-                            selected_index -= 1;
-                        }
+                        selected_index = selected_index.saturating_sub(1);
                     }
                     KeyCode::Down | KeyCode::Char('j') => {
                         if selected_index < files_with_labels.len() - 1 {
