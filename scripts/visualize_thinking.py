@@ -49,8 +49,13 @@ def plot_thinking_data(kifu_path):
     
     plt.tight_layout()
     
-    # Save plot
-    output_path = kifu_path.replace('.json', '_analysis.png')
+    
+    # Save plot to analysis_graphs directory
+    output_dir = Path("analysis_graphs")
+    output_dir.mkdir(exist_ok=True)
+    
+    kifu_filename = Path(kifu_path).stem
+    output_path = output_dir / f"{kifu_filename}_analysis.png"
     plt.savefig(output_path, dpi=150)
     print(f"Saved plot to: {output_path}")
     
