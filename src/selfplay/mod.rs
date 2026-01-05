@@ -123,6 +123,13 @@ impl SelfPlayStats {
 
 // Parallel self-play implementation
 pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
+    // Configure thread pool for optimal performance
+    // Using 6 threads on 8-core system leaves headroom for OS and background tasks
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(6)
+        .build_global()
+        .ok(); // Ignore error if already initialized
+
     let mut stats = SelfPlayStats::new(
         config.board_setup.to_string(),
         config.ai1_strength,
@@ -130,13 +137,13 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
     );
 
     let mode = if config.use_parallel {
-        "parallel"
+        "parallel (6 threads)"
     } else {
         "sequential"
     };
-    println!("Starting {} games ({} mode)...", config.num_games, mode);
+    println!("Starting {} games ({} mode)...\r", config.num_games, mode);
     println!(
-        "AI Strength: {:?} vs {:?}",
+        "AI Strength: {:?} vs {:?}\r",
         config.ai1_strength, config.ai2_strength
     );
     println!();
@@ -148,7 +155,7 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
         (1..=config.num_games)
             .into_par_iter()
             .map(|game_num| {
-                let result = run_single_game(game_num, &config);
+                let result = run_single_game(game_num, &config, true); // silent mode
 
                 // Update progress
                 {
@@ -164,7 +171,7 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
         (1..=config.num_games)
             .map(|game_num| {
                 println!("Running game {}/{}...", game_num, config.num_games);
-                run_single_game(game_num, &config)
+                run_single_game(game_num, &config, false) // verbose mode
             })
             .collect()
     };
@@ -228,8 +235,9 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
 }
 
 fn run_single_game(
-    game_num: usize,
+    _game_num: usize,
     config: &SelfPlayConfig,
+    silent: bool,
 ) -> anyhow::Result<(
     Game,
     Option<PlayerId>,
@@ -258,7 +266,8 @@ fn run_single_game(
     let mut game = Game::new(board);
     game.perspective_mode = PerspectiveMode::Fixed(PlayerId::Player1);
 
-    let (winner, move_count, thinking_data) = run_game_silent(&mut game, p1.as_ref(), p2.as_ref())?;
+    let (winner, move_count, thinking_data) =
+        run_game_silent(&mut game, p1.as_ref(), p2.as_ref(), silent)?;
 
     let elapsed = start_time.elapsed();
 
@@ -268,6 +277,7 @@ fn run_game_silent(
     game: &mut Game,
     p1: &dyn PlayerController,
     p2: &dyn PlayerController,
+    silent: bool,
 ) -> anyhow::Result<(Option<PlayerId>, usize, Vec<ThinkingInfo>)> {
     let mut move_count = 0;
     let mut thinking_data = Vec::new();
@@ -300,13 +310,15 @@ fn run_game_silent(
             }
         }
 
-        // Display current move being calculated
-        print!(
-            "\r\x1B[KMove {}: {:?} thinking...",
-            move_count + 1,
-            current_player
-        );
-        std::io::Write::flush(&mut std::io::stdout())?;
+        // Display current move being calculated (only in verbose mode)
+        if !silent {
+            print!(
+                "\r\x1B[KMove {}: {:?} thinking...",
+                move_count + 1,
+                current_player
+            );
+            std::io::Write::flush(&mut std::io::stdout())?;
+        }
 
         if let Some(chosen_move) = controller.choose_move(&game.board, &legal_moves) {
             // Collect thinking data from AI
