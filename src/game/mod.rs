@@ -207,7 +207,7 @@ impl Game {
             match std::fs::File::create(&filepath) {
                 Ok(file) => {
                     let kifu_data = KifuData {
-                        board_setup: "Unknown".to_string(),  // TODO: Track board setup
+                        board_setup: "Unknown".to_string(), // TODO: Track board setup
                         moves: self.history.clone(),
                     };
                     // Minified JSON (not pretty) to keep it lightweight
@@ -222,5 +222,8 @@ impl Game {
             // Wait user to see message
             std::thread::sleep(std::time::Duration::from_secs(2));
         }
+
+        // Re-enable raw mode for next game
+        let _ = crossterm::terminal::enable_raw_mode();
     }
 }
