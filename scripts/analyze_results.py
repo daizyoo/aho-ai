@@ -140,5 +140,5 @@ if __name__ == "__main__":
         display_statistics(results)
         
         # Show comparison if available
-        if len(list(Path(".").glob("selfplay_results_*.json"))) > 1:
+        if len(list(Path("../selfplay_results").glob("selfplay_results_*.json"))) > 1:
             compare_results()
