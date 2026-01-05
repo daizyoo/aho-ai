@@ -356,7 +356,14 @@ fn save_kifu(
 
 // Display progress in columns
 fn display_progress(status: &[Option<bool>], total: usize) {
-    print!("\r\x1B[K"); // Clear line
+    // Clear screen and move to top
+    execute!(
+        std::io::stdout(),
+        crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
+        crossterm::cursor::MoveTo(0, 0)
+    ).ok();
+    
+    println!("=== Self-Play Progress ===\n");
     
     // Display games in rows of 8
     for (idx, &state) in status.iter().enumerate() {
@@ -371,13 +378,17 @@ fn display_progress(status: &[Option<bool>], total: usize) {
         
         // New line every 8 games
         if (idx + 1) % 8 == 0 {
-            print!("\r\n");
+            println!();
         }
     }
     
-    // Count completed
+    // Count completed and running
     let completed = status.iter().filter(|&&s| s == Some(true)).count();
-    print!("\r\nCompleted: {}/{}", completed, total);
+    let running = status.iter().filter(|&&s| s == Some(false)).count();
+    
+    println!("\n");
+    println!("Running:   {} games", running);
+    println!("Completed: {}/{}", completed, total);
     
     std::io::Write::flush(&mut std::io::stdout()).ok();
 }
