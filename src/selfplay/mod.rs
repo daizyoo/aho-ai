@@ -129,7 +129,11 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
         config.ai2_strength,
     );
 
-    let mode = if config.use_parallel { "parallel" } else { "sequential" };
+    let mode = if config.use_parallel {
+        "parallel"
+    } else {
+        "sequential"
+    };
     println!("Starting {} games ({} mode)...", config.num_games, mode);
     println!(
         "AI Strength: {:?} vs {:?}",
@@ -140,7 +144,7 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
     let results: Vec<_> = if config.use_parallel {
         // Parallel execution with progress display
         let game_status = Arc::new(Mutex::new(vec![None; config.num_games]));
-        
+
         (1..=config.num_games)
             .into_par_iter()
             .map(|game_num| {
@@ -376,7 +380,7 @@ fn save_kifu(
     Ok(())
 }
 
-// Display progress in columns
+// Display progress in list format
 fn display_progress(status: &[Option<bool>], total: usize) {
     // Clear screen and move to top
     execute!(
@@ -386,32 +390,27 @@ fn display_progress(status: &[Option<bool>], total: usize) {
     )
     .ok();
 
-    println!("=== Self-Play Progress ===\n");
+    println!("=== Self-Play Progress ===\r\n");
 
-    // Display games in rows of 8
+    // Display games in list format
     for (idx, &state) in status.iter().enumerate() {
         let game_num = idx + 1;
-        let symbol = match state {
-            None => "⏸",        // Not started
-            Some(false) => "▶", // Running
-            Some(true) => "✓",  // Completed
+        let status_text = match state {
+            None => "Waiting...".to_string(),
+            Some(false) => "Running...".to_string(),
+            Some(true) => "✓ Complete".to_string(),
         };
 
-        print!("G{:2}:{} ", game_num, symbol);
-
-        // New line every 8 games
-        if (idx + 1) % 8 == 0 {
-            print!("\r\n");
-        }
+        println!("Game {:2}: {}", game_num, status_text);
     }
 
     // Count completed and running
     let completed = status.iter().filter(|&&s| s == Some(true)).count();
     let running = status.iter().filter(|&&s| s == Some(false)).count();
 
-    println!("\r");
-    println!("Running:   {} games\r", running);
-    println!("Completed: {}/{}\r", completed, total);
+    println!("\r\n");
+    println!("Running:   {} games", running);
+    println!("Completed: {}/{}", completed, total);
 
     std::io::Write::flush(&mut std::io::stdout()).ok();
 }
