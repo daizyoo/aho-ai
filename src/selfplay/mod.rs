@@ -391,4 +391,3 @@ fn display_progress(status: &[Option<bool>], total: usize) {
            running, completed, total, (completed as f64 / total as f64) * 100.0);
     std::io::Write::flush(&mut std::io::stdout()).ok();
 }
-```
