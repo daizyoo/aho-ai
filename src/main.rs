@@ -403,12 +403,30 @@ async fn run_local() -> anyhow::Result<()> {
     // p1_shogi / p2_shogi determine piece parsing when 1-char symbols are used
     // in fair setup, both are used, so we just set them based on majority or just true/false
     let (board, setup_name) = match b_choice {
-        "1" => (setup_from_strings(&crate::core::setup::get_standard_mixed_setup(), true, false), "StandardMixed".to_string()),
-        "2" => (setup_from_strings(&crate::core::setup::get_reversed_mixed_setup(), false, true), "ReversedMixed".to_string()),
-        "3" => (setup_from_strings(&crate::core::setup::get_shogi_setup(), true, true), "ShogiOnly".to_string()),
-        "4" => (setup_from_strings(&crate::core::setup::get_chess_setup(), false, false), "ChessOnly".to_string()),
-        "5" => (setup_from_strings(&crate::core::setup::get_fair_setup(), true, true), "Fair".to_string()),
-        _ => (setup_from_strings(&crate::core::setup::get_reversed_fair_setup(), true, true), "ReversedFair".to_string()),
+        "1" => (
+            setup_from_strings(&crate::core::setup::get_standard_mixed_setup(), true, false),
+            "StandardMixed".to_string(),
+        ),
+        "2" => (
+            setup_from_strings(&crate::core::setup::get_reversed_mixed_setup(), false, true),
+            "ReversedMixed".to_string(),
+        ),
+        "3" => (
+            setup_from_strings(&crate::core::setup::get_shogi_setup(), true, true),
+            "ShogiOnly".to_string(),
+        ),
+        "4" => (
+            setup_from_strings(&crate::core::setup::get_chess_setup(), false, false),
+            "ChessOnly".to_string(),
+        ),
+        "5" => (
+            setup_from_strings(&crate::core::setup::get_fair_setup(), true, true),
+            "Fair".to_string(),
+        ),
+        _ => (
+            setup_from_strings(&crate::core::setup::get_reversed_fair_setup(), true, true),
+            "ReversedFair".to_string(),
+        ),
     };
 
     let mut game = Game::with_setup(board, setup_name);
@@ -481,12 +499,28 @@ fn select_kifu_file(dir: &str) -> anyhow::Result<Option<std::path::PathBuf>> {
         }
     }
 
-    // Add self-play kifu files
+    // Add self-play kifu files (support both subdirectories and legacy flat structure)
     let selfplay_dir = "selfplay_kifu";
     if let Ok(entries) = fs::read_dir(selfplay_dir) {
         for entry in entries.filter_map(|e| e.ok()) {
             let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            if path.is_dir() {
+                // Search in board-type subdirectories
+                if let Ok(sub_entries) = fs::read_dir(&path) {
+                    for sub_entry in sub_entries.filter_map(|e| e.ok()) {
+                        let sub_path = sub_entry.path();
+                        if sub_path.extension().and_then(|s| s.to_str()) == Some("json") {
+                            if let Some(board_type) = path.file_name().and_then(|s| s.to_str()) {
+                                if let Some(name) = sub_path.file_name().and_then(|s| s.to_str()) {
+                                    files_with_labels
+                                        .push((format!("[{}] {}", board_type, name), sub_path));
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                // Legacy files in root directory
                 if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
                     files_with_labels.push((format!("[AI vs AI] {}", name), path));
                 }
@@ -707,7 +741,7 @@ async fn run_selfplay() -> anyhow::Result<()> {
         ai2_strength,
         board_setup,
         save_kifus: true,
-        use_parallel: true,  // Default to parallel
+        use_parallel: true, // Default to parallel
     };
 
     let stats = crate::selfplay::run_selfplay(config)?;
