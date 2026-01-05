@@ -4,7 +4,6 @@ mod game;
 mod logic;
 mod network;
 mod player;
-mod replay_selector;
 mod selfplay;
 
 use crate::core::PlayerId;
@@ -73,8 +72,8 @@ async fn run_menu() -> anyhow::Result<()> {
     print!("\r\nSelect mode:\r\n");
     print!("1. Local Play\r\n");
     print!("2. Start Server\r\n");
-    print!("4. Self-Play (Batch AI vs AI)\r\n");
     print!("3. Connect to Server\r\n");
+    print!("4. Self-Play (Batch AI vs AI)\r\n");
 
     let mode = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -82,8 +81,8 @@ async fn run_menu() -> anyhow::Result<()> {
                 match key.code {
                     KeyCode::Char('1') => break "local",
                     KeyCode::Char('2') => break "server",
-                    KeyCode::Char('4') => break "selfplay",
                     KeyCode::Char('3') => break "client",
+                    KeyCode::Char('4') => break "selfplay",
                     KeyCode::Char('q') => return Ok(()),
                     _ => {}
                 }
@@ -259,7 +258,7 @@ async fn run_local() -> anyhow::Result<()> {
 
                 let mut viewer = crate::game::replay::ReplayViewer::new(kifu_data);
                 viewer.run()?;
-                
+
                 // After replay ends, loop continues to show selection again
             } else {
                 // User pressed 'q' to quit selection
