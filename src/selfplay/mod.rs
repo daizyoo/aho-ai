@@ -357,12 +357,14 @@ fn save_kifu(
     ai2_strength: AIStrength,
     thinking_data: Vec<ThinkingInfo>,
 ) -> anyhow::Result<()> {
-    let kifu_dir = "selfplay_kifu";
-    std::fs::create_dir_all(kifu_dir)?;
+    // Create board-type-specific directory
+    let base_dir = "selfplay_kifu";
+    let board_dir = format!("{}/{}", base_dir, board_setup);
+    std::fs::create_dir_all(&board_dir)?;
 
     let filename = format!(
         "{}/game_{:04}_{}.json",
-        kifu_dir,
+        board_dir,
         game_num,
         chrono::Local::now().format("%Y%m%d_%H%M%S")
     );
@@ -375,8 +377,9 @@ fn save_kifu(
         thinking_data: Some(thinking_data),
     };
 
-    let file = std::fs::File::create(filename)?;
-    serde_json::to_writer(file, &kifu_data)?;
+    let file = std::fs::File::create(&filename)?;
+    serde_json::to_writer_pretty(file, &kifu_data)?;
+
     Ok(())
 }
 
@@ -384,10 +387,15 @@ fn save_kifu(
 fn display_progress(status: &[Option<bool>], total: usize) {
     let completed = status.iter().filter(|&&s| s == Some(true)).count();
     let running = status.iter().filter(|&&s| s == Some(false)).count();
-    
+
     // Clear line and show simple progress
     print!("\r\x1B[K");
-    print!("Progress: {} running, {} completed / {} total ({:.1}%)", 
-           running, completed, total, (completed as f64 / total as f64) * 100.0);
+    print!(
+        "Progress: {} running, {} completed / {} total ({:.1}%)",
+        running,
+        completed,
+        total,
+        (completed as f64 / total as f64) * 100.0
+    );
     std::io::Write::flush(&mut std::io::stdout()).ok();
 }

@@ -5,3 +5,5 @@ Makefile.toml
 /kifu
 /selfplay_results
 /config_backups
+/old
+/analysis_
