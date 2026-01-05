@@ -382,15 +382,13 @@ fn save_kifu(
 
 // Display progress in list format
 fn display_progress(status: &[Option<bool>], total: usize) {
-    // Clear screen and move to top
-    execute!(
-        std::io::stdout(),
-        crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
-        crossterm::cursor::MoveTo(0, 0)
-    )
-    .ok();
+    // Clear screen and move cursor to top using ANSI escape sequences
+    // \x1B[2J = clear entire screen
+    // \x1B[H = move cursor to home (0,0)
+    print!("\x1B[2J\x1B[H");
+    std::io::Write::flush(&mut std::io::stdout()).ok();
 
-    println!("=== Self-Play Progress ===\r\n");
+    println!("=== Self-Play Progress ===\n");
 
     // Display games in list format
     for (idx, &state) in status.iter().enumerate() {
