@@ -1,3 +1,4 @@
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -21,16 +22,26 @@ pub struct SearchConfig {
     pub max_depth_strong: u8,
 }
 
+// Global config instance - loaded once at startup
+pub static AI_CONFIG: Lazy<AIConfig> = Lazy::new(|| {
+    AIConfig::load().unwrap_or_else(|e| {
+        eprintln!("Warning: Failed to load ai_config.json: {}", e);
+        eprintln!("Using default configuration");
+        AIConfig::default()
+    })
+});
+
 impl AIConfig {
-    pub fn load() -> anyhow::Result<Self> {
+    fn load() -> anyhow::Result<Self> {
         let config_path = "ai_config.json";
         let config_str = std::fs::read_to_string(config_path)?;
         let config: AIConfig = serde_json::from_str(&config_str)?;
         Ok(config)
     }
 
-    pub fn load_or_default() -> Self {
-        Self::load().unwrap_or_else(|_| Self::default())
+    /// Get the global config instance (zero-cost after first access)
+    pub fn get() -> &'static AIConfig {
+        &AI_CONFIG
     }
 }
 

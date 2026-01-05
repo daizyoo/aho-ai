@@ -26,7 +26,6 @@ const VAL_QUEEN: i32 = 1800; // Strongest
 
 // Hand piece bonus (increased from 1.1 to 1.2 based on self-play analysis)
 // Analysis shows winners use drops 14.8% of moves - higher value encourages this
-const HAND_PIECE_BONUS_MULTIPLIER: f32 = 1.2;
 
 fn piece_val(k: PieceKind) -> i32 {
     match k {
@@ -51,8 +50,8 @@ fn piece_val(k: PieceKind) -> i32 {
 }
 
 pub fn evaluate(board: &Board) -> i32 {
-    let config = AIConfig::load_or_default();
-    let hand_multiplier = config.evaluation.hand_piece_bonus_multiplier as f32;
+    // Use cached config - zero overhead after first access
+    let hand_multiplier = AIConfig::get().evaluation.hand_piece_bonus_multiplier as f32;
     let mut score = 0;
 
     // 1. Material & PST
@@ -93,7 +92,7 @@ pub fn evaluate(board: &Board) -> i32 {
         for (kind, &count) in hand {
             if count > 0 {
                 let val = piece_val(*kind);
-                score += (val as f32 * HAND_PIECE_BONUS_MULTIPLIER) as i32 * count as i32;
+                score += (val as f32 * hand_multiplier) as i32 * count as i32;
             }
         }
     }
@@ -102,7 +101,7 @@ pub fn evaluate(board: &Board) -> i32 {
         for (kind, &count) in hand {
             if count > 0 {
                 let val = piece_val(*kind);
-                score -= (val as f32 * HAND_PIECE_BONUS_MULTIPLIER) as i32 * count as i32;
+                score -= (val as f32 * hand_multiplier) as i32 * count as i32;
             }
         }
     }
