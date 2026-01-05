@@ -135,7 +135,7 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
     );
     println!();
 
-    let completed = Arc::new(Mutex::new(0));
+    let game_status = Arc::new(Mutex::new(vec![None; config.num_games]));
 
     // Run games in parallel
     let results: Vec<_> = (1..=config.num_games)
@@ -143,12 +143,12 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
         .map(|game_num| {
             let result = run_single_game(game_num, &config);
 
-            // Update progress counter
+            // Update progress
             {
-                let mut count = completed.lock().unwrap();
-                *count += 1;
-                print!("\rCompleted: {}/{}", *count, config.num_games);
-                std::io::Write::flush(&mut std::io::stdout()).ok();
+                let mut status = game_status.lock().unwrap();
+                status[game_num - 1] = Some(true);
+                display_progress(&status, config.num_games);
+            }
             }
 
             result
