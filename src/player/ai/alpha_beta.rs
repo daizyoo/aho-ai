@@ -66,22 +66,20 @@ impl AlphaBetaAI {
 
             // Get best move from TT for this depth
             let hash = ZobristHasher::compute_hash(board, self.player_id);
-            if let Some((_entry, mv)) = self.tt.borrow().get(hash) {
-                if let Some(m) = mv {
-                    best_move = Some(m);
-                    final_depth = depth;
-                    final_score = score;
+            if let Some((_entry, Some(m))) = self.tt.borrow().get(hash) {
+                best_move = Some(m);
+                final_depth = depth;
+                final_score = score;
 
-                    // Display thinking info
-                    if std::env::var("VERBOSE_AI").is_ok() {
-                        print!(
-                            " [d={} s={} n={}]",
-                            depth,
-                            score,
-                            self.nodes_evaluated.borrow()
-                        );
-                        std::io::Write::flush(&mut std::io::stdout()).ok();
-                    }
+                // Display thinking info
+                if std::env::var("VERBOSE_AI").is_ok() {
+                    print!(
+                        " [d={} s={} n={}]",
+                        depth,
+                        score,
+                        self.nodes_evaluated.borrow()
+                    );
+                    std::io::Write::flush(&mut std::io::stdout()).ok();
                 }
             }
         }
@@ -94,8 +92,6 @@ impl AlphaBetaAI {
             *self.nodes_evaluated.borrow(),
             elapsed.as_millis(),
         ));
-
-
 
         best_move
     }
@@ -178,9 +174,8 @@ impl AlphaBetaAI {
 
         let mut best_score = -200000;
         let mut best_move = None;
-        let mut moves_searched = 0;
 
-        for mv in moves.iter() {
+        for (moves_searched, mv) in moves.iter().enumerate() {
             let next_board = apply_move(board, mv, current_player);
             let mut score;
 
@@ -253,8 +248,6 @@ impl AlphaBetaAI {
             if alpha >= beta {
                 break; // Beta cutoff
             }
-
-            moves_searched += 1;
         }
 
         // TT Store
@@ -276,16 +269,13 @@ impl AlphaBetaAI {
     fn order_moves(&self, board: &Board, moves: &mut [Move], _player: PlayerId) {
         moves.sort_by_key(|mv| {
             let mut score = 0;
-            match mv {
-                Move::Normal { to, promote, .. } => {
-                    if board.get_piece(*to).is_some() {
-                        score -= 10000; // Capture bonus
-                    }
-                    if *promote {
-                        score -= 5000; // Promote bonus
-                    }
+            if let Move::Normal { to, promote, .. } = mv {
+                if board.get_piece(*to).is_some() {
+                    score -= 10000; // Capture bonus
                 }
-                _ => {}
+                if *promote {
+                    score -= 5000; // Promote bonus
+                }
             }
             score
         });

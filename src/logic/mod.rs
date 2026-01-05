@@ -31,11 +31,9 @@ pub fn pseudo_legal_moves(board: &Board, player: PlayerId) -> Vec<Move> {
                         for x in 0..board.width {
                             let to = Position::new(x, y);
                             if board.get_piece(to).is_none() {
-                                if kind == PieceKind::S_Pawn {
-                                    if has_pawn_in_column(board, player, x) {
-                                        continue;
-                                    }
-                                    // 打ち歩詰め制限は簡易化のため今は入れない
+                                if kind == PieceKind::S_Pawn && has_pawn_in_column(board, player, x)
+                                {
+                                    continue;
                                 }
                                 moves.push(Move::Drop { kind, to });
                             }

@@ -48,7 +48,7 @@ impl Board {
     }
 
     pub fn add_to_hand(&mut self, player: PlayerId, kind: PieceKind) {
-        let hand = self.hand.entry(player).or_insert_with(HashMap::new);
+        let hand = self.hand.entry(player).or_default();
         *hand.entry(kind).or_insert(0) += 1;
     }
 

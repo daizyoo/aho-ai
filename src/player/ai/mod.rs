@@ -8,6 +8,5 @@ pub mod weighted;
 pub mod zobrist;
 
 pub use alpha_beta::{AIStrength, AlphaBetaAI};
-pub use config::AIConfig;
 pub use minimax::MinimaxAI;
 pub use weighted::WeightedRandomAI;

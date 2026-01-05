@@ -113,14 +113,16 @@ impl Game {
             let moves = legal_moves(&self.board, self.current_player);
 
             if moves.is_empty() {
-                let mut state = crate::display::DisplayState::default();
-                state.status_msg = Some(
-                    if crate::logic::is_checkmate(&self.board, self.current_player) {
-                        format!("Checkmate! {:?} wins!", self.current_player.opponent())
-                    } else {
-                        format!("No more moves! {:?} wins!", self.current_player.opponent())
-                    },
-                );
+                let state = crate::display::DisplayState {
+                    status_msg: Some(
+                        if crate::logic::is_checkmate(&self.board, self.current_player) {
+                            format!("Checkmate! {:?} wins!", self.current_player.opponent())
+                        } else {
+                            format!("No more moves! {:?} wins!", self.current_player.opponent())
+                        },
+                    ),
+                    ..Default::default()
+                };
                 crate::display::render_board(&self.board, &state);
                 std::thread::sleep(std::time::Duration::from_secs(10));
                 break;

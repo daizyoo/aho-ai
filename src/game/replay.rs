@@ -75,36 +75,6 @@ impl ReplayViewer {
         }
     }
 
-    pub fn with_initial_board(history: Vec<Move>, initial_board: Board) -> Self {
-        // Pre-calculate board states
-        let mut boards = Vec::new();
-        let mut board = initial_board;
-        boards.push(board.clone());
-        let mut current_player = PlayerId::Player1;
-
-        for mv in &history {
-            board = apply_move(&board, mv, current_player);
-            boards.push(board.clone());
-            current_player = current_player.opponent();
-        }
-
-        // This function cannot initialize the `kifu` field correctly without `KifuData`.
-        // It's likely intended for testing or specific scenarios where `KifuData` isn't available.
-        // For now, we'll use a dummy KifuData.
-        Self {
-            kifu: crate::game::KifuData {
-                board_setup: "Unknown".to_string(),
-                player1_name: "?".to_string(),
-                player2_name: "?".to_string(),
-                moves: vec![],
-                thinking_data: None,
-            },
-            history,
-            boards,
-            current_index: 0,
-        }
-    }
-
     #[allow(dead_code)]
     pub fn from_kifu_path(path: &std::path::Path) -> anyhow::Result<Self> {
         use std::fs::File;
@@ -133,10 +103,12 @@ impl ReplayViewer {
             )?;
 
             // Render board
-            let mut state = DisplayState::default();
-            state.perspective = PlayerId::Player1;
-            state.last_move = last_move;
-            state.status_msg = None;
+            let state = DisplayState {
+                perspective: PlayerId::Player1,
+                last_move,
+                status_msg: None,
+                ..Default::default()
+            };
 
             render_board(board, &state);
 

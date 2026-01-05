@@ -41,7 +41,7 @@ impl TranspositionTable {
         // あくまで概算。
         let num_entries = (size_mb * 1024 * 1024) / 80; // 安全側に倒して少し大きめに見積もる
         Self {
-            entries: std::iter::repeat(None).take(num_entries).collect(),
+            entries: std::iter::repeat_n(None, num_entries).collect(),
             size: num_entries,
         }
     }

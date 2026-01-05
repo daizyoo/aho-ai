@@ -2,16 +2,11 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// プレイヤーID
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum PlayerId {
+    #[default]
     Player1, // 先手 (通常)
     Player2, // 後手 (通常)
-}
-
-impl Default for PlayerId {
-    fn default() -> Self {
-        PlayerId::Player1
-    }
 }
 
 impl PlayerId {
