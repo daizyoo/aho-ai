@@ -77,6 +77,7 @@ struct GameResult {
     time_ms: u128,
 }
 
+#[derive(Serialize)]
 pub struct SelfPlayStats {
     pub total_games: usize,
     pub p1_wins: usize,
@@ -275,7 +276,11 @@ fn run_game_silent(
             // Checkmate or stalemate
             let in_check = crate::logic::is_in_check(&game.board, current_player);
             if in_check {
-                return Ok((Some(current_player.opponent()), move_count, thinking_data.clone()));
+                return Ok((
+                    Some(current_player.opponent()),
+                    move_count,
+                    thinking_data.clone(),
+                ));
             } else {
                 return Ok((None, move_count, thinking_data.clone())); // Stalemate
             }
@@ -291,8 +296,11 @@ fn run_game_silent(
 
         if let Some(chosen_move) = controller.choose_move(&game.board, &legal_moves) {
             // Collect thinking data from AI
-            let ai_ptr = controller as *const dyn crate::player::PlayerController as *const AlphaBetaAI;
-            if let Some((depth, score, nodes, time_ms)) = unsafe { (*ai_ptr).last_thinking.borrow().clone() } {
+            let ai_ptr =
+                controller as *const dyn crate::player::PlayerController as *const AlphaBetaAI;
+            if let Some((depth, score, nodes, time_ms)) =
+                unsafe { (*ai_ptr).last_thinking.borrow().clone() }
+            {
                 thinking_data.push(ThinkingInfo {
                     move_number: move_count + 1,
                     player: format!("{:?}", current_player),
@@ -308,12 +316,23 @@ fn run_game_silent(
             game.current_player = current_player.opponent();
             move_count += 1;
         } else {
-            return Ok((Some(current_player.opponent()), move_count, thinking_data.clone())); // Resignation
+            return Ok((
+                Some(current_player.opponent()),
+                move_count,
+                thinking_data.clone(),
+            )); // Resignation
         }
     }
 }
 
-fn save_kifu(game: &Game, game_num: usize, board_setup: &str, ai1_strength: AIStrength, ai2_strength: AIStrength, thinking_data: Vec<ThinkingInfo>) -> anyhow::Result<()> {
+fn save_kifu(
+    game: &Game,
+    game_num: usize,
+    board_setup: &str,
+    ai1_strength: AIStrength,
+    ai2_strength: AIStrength,
+    thinking_data: Vec<ThinkingInfo>,
+) -> anyhow::Result<()> {
     let kifu_dir = "selfplay_kifu";
     std::fs::create_dir_all(kifu_dir)?;
 
