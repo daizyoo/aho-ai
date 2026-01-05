@@ -57,7 +57,7 @@ impl ReplayViewer {
             }
             "ChessOnly" => {
                 let map = setup::get_chess_setup();
-                setup::setup_from_strings(&map, false, false)
+                setup::setup_from_strings(&map, true, true)
             }
             "Fair" => {
                 let map = setup::get_fair_setup();
@@ -65,7 +65,7 @@ impl ReplayViewer {
             }
             "ReversedFair" => {
                 let map = setup::get_reversed_fair_setup();
-                setup::setup_from_strings(&map, false, false)
+                setup::setup_from_strings(&map, true, true)
             }
             _ => {
                 // Default to Fair if unknown
@@ -75,8 +75,8 @@ impl ReplayViewer {
         }
     }
 
-    #[allow(dead_code)]
     pub fn with_initial_board(history: Vec<Move>, initial_board: Board) -> Self {
+        // Pre-calculate board states
         let mut boards = Vec::new();
         let mut board = initial_board;
         boards.push(board.clone());
@@ -97,13 +97,14 @@ impl ReplayViewer {
                 player1_name: "?".to_string(),
                 player2_name: "?".to_string(),
                 moves: vec![],
-            }, // Placeholder
+            },
             history,
             boards,
             current_index: 0,
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_kifu_path(path: &std::path::Path) -> anyhow::Result<Self> {
         use std::fs::File;
         use std::io::BufReader;
@@ -114,13 +115,8 @@ impl ReplayViewer {
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
-        let _current_player = PlayerId::Player1; // Tracks who moved to reach CURRENT state (approx)
-                                                 // Actually, state[0] is initial. state[1] is after P1 move.
-                                                 // So at index i, the next move is by P1 if i is even, P2 if i is odd.
-                                                 // (Assuming P1 starts).
-
         loop {
-            // Render
+            // Get current board state
             let board = &self.boards[self.current_index];
             let last_move = if self.current_index > 0 {
                 Some(self.history[self.current_index - 1].clone())
@@ -128,54 +124,18 @@ impl ReplayViewer {
                 None
             };
 
-            let next_player = if self.current_index % 2 == 0 {
-                PlayerId::Player1
-            } else {
-                PlayerId::Player2
-            };
-
+            // Clear screen
             execute!(
                 io::stdout(),
                 terminal::Clear(terminal::ClearType::All),
                 crossterm::cursor::MoveTo(0, 0)
             )?;
 
-            // Display game info
-            print!("=== Kifu Replay ===\r\n");
-            print!("Setup: {}\r\n", self.kifu.board_setup);
-            print!(
-                "{} vs {}\r\n",
-                self.kifu.player1_name, self.kifu.player2_name
-            );
-
-            // Display winner
-            let total_moves = self.kifu.moves.len();
-            if total_moves > 0 {
-                let winner = if total_moves % 2 == 1 {
-                    &self.kifu.player1_name
-                } else {
-                    &self.kifu.player2_name
-                };
-                print!("Winner: {}\r\n", winner);
-            }
-            print!("\r\n");
-
-            print!(
-                "Move {}/{} | [←/→] Navigate | [q] Quit\r\n",
-                self.current_index, // Changed from current_move_index + 1
-                self.kifu.moves.len()
-            );
-            print!("\r\n");
-
+            // Render board
             let mut state = DisplayState::default();
-            state.perspective = PlayerId::Player1; // Fixed perspective for replay? Or auto? Let's use P1.
-            state.last_move = last_move.clone();
-            state.status_msg = Some(format!(
-                "Replay: Move {}/{} ({:?}) - [Only Standard/Fair supported?]",
-                self.current_index,
-                self.kifu.moves.len(), // Changed from self.history.len()
-                next_player
-            ));
+            state.perspective = PlayerId::Player1;
+            state.last_move = last_move;
+            state.status_msg = None;
 
             render_board(board, &state);
 
@@ -202,7 +162,7 @@ impl ReplayViewer {
                 total_moves
             );
 
-            // Input
+            // Input handling
             if event::poll(Duration::from_millis(100))? {
                 if let Event::Key(key) = event::read()? {
                     match key.code {
