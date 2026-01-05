@@ -65,7 +65,6 @@ if __name__ == "__main__":
     # First run analysis
     import subprocess
     print("Running analysis...")
-    subprocess.run(["python3", "scripts/phase1_analyze.py"])
     
     # Then update config
     print("\nChecking for config updates...")
