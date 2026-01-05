@@ -1,4 +1,5 @@
 use crate::core::{Board, PieceKind, PlayerId};
+use super::config::AIConfig;
 use crate::player::ai::pst::get_pst_value;
 
 // Material Values (in CP) - Adjusted for Mixed
@@ -50,6 +51,8 @@ fn piece_val(k: PieceKind) -> i32 {
 }
 
 pub fn evaluate(board: &Board) -> i32 {
+    let config = AIConfig::load_or_default();
+    let hand_multiplier = config.evaluation.hand_piece_bonus_multiplier as f32;
     let mut score = 0;
 
     // 1. Material & PST

@@ -1,0 +1,21 @@
+{
+    "version": "1.0",
+    "evaluation": {
+        "hand_piece_bonus_multiplier": 1.2,
+        "material_values": {
+            "pawn": 100,
+            "lance": 350,
+            "knight": 400,
+            "silver": 550,
+            "gold": 600,
+            "bishop": 850,
+            "rook": 1000,
+            "king": 10000
+        },
+        "pst_enabled": true
+    },
+    "search": {
+        "max_depth_light": 2,
+        "max_depth_strong": 4
+    }
+}

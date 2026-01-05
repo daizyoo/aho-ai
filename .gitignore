@@ -1,5 +1,6 @@
 /target
 Cargo.lock
+Makefile.toml
 /selfplay_kifu
 /kifu
 /selfplay_results

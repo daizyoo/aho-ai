@@ -1,8 +1,0 @@
-[tasks.build-rename]
-description = "Build and rename binary with version"
-script = '''
-cargo build --release
-version = ${CARGO_MAKE_CRATE_VERSION}
-cp target/release/my_app target/release/my_app-v${version}
-echo "Created: target/release/my_app-v${version}"
-'''

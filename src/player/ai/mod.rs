@@ -1,4 +1,5 @@
 pub mod alpha_beta;
+pub mod config;
 pub mod eval;
 pub mod minimax;
 pub mod pst;
@@ -7,5 +8,6 @@ pub mod weighted;
 pub mod zobrist;
 
 pub use alpha_beta::{AIStrength, AlphaBetaAI};
+pub use config::AIConfig;
 pub use minimax::MinimaxAI;
 pub use weighted::WeightedRandomAI;
