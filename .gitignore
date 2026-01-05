@@ -4,3 +4,4 @@ Makefile.toml
 /selfplay_kifu
 /kifu
 /selfplay_results
+/config_backups

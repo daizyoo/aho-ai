@@ -16,8 +16,13 @@ def update_ai_config(analysis_results):
         print(f"Error: {config_path} not found")
         return
     
+    # Create backup directory
+    backup_dir = Path("config_backups")
+    backup_dir.mkdir(exist_ok=True)
+    
     # Backup current config
-    backup_path = f"ai_config.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    backup_filename = f"ai_config.{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    backup_path = backup_dir / backup_filename
     shutil.copy(config_path, backup_path)
     print(f"\n✓ Backed up config to: {backup_path}")
     
