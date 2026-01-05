@@ -191,7 +191,7 @@ if __name__ == "__main__":
                 'ai2_strength': data['ai2_strength'],
             }
         
-        output_file = "analyze_results.json"
+        output_file = "scripts/analyze_results.json"
         with open(output_file, 'w') as f:
             json.dump(output_data, f, indent=2)
         

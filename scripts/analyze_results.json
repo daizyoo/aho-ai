@@ -1,0 +1,19 @@
+{
+  "ShogiOnly (Light vs Light)": {
+    "total_games": 15,
+    "p1_wins": 5,
+    "p2_wins": 8,
+    "draws": 2,
+    "p1_win_rate": 33.33333333333333,
+    "p2_win_rate": 53.333333333333336,
+    "draw_rate": 13.333333333333334,
+    "avg_moves": 187.26666666666668,
+    "avg_time_s": 1036.6822,
+    "source_files": [
+      "selfplay_results_20260105_212034.json"
+    ],
+    "board_setup": "ShogiOnly",
+    "ai1_strength": "Light",
+    "ai2_strength": "Light"
+  }
+}

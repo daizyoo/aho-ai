@@ -68,6 +68,7 @@ pub struct SelfPlayConfig {
     pub ai1_strength: AIStrength,
     pub ai2_strength: AIStrength,
     pub save_kifus: bool,
+    pub use_parallel: bool, // Enable/disable parallel execution
 }
 
 #[derive(Serialize, Deserialize)]
