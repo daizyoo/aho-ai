@@ -199,7 +199,7 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
 
         // Save kifu if requested
         if config.save_kifus {
-            save_kifu(&game, game_num, &stats.board_setup)?;
+            save_kifu(&game, game_num, &stats.board_setup, config.ai1_strength, config.ai2_strength)?;
         }
     }
 
@@ -257,7 +257,7 @@ fn run_game_silent(
     }
 }
 
-fn save_kifu(game: &Game, game_num: usize, board_setup: &str) -> anyhow::Result<()> {
+fn save_kifu(game: &Game, game_num: usize, board_setup: &str, ai1_strength: AIStrength, ai2_strength: AIStrength) -> anyhow::Result<()> {
     let kifu_dir = "selfplay_kifu";
     std::fs::create_dir_all(kifu_dir)?;
 
@@ -270,8 +270,8 @@ fn save_kifu(game: &Game, game_num: usize, board_setup: &str) -> anyhow::Result<
 
     let kifu_data = KifuData {
         board_setup: board_setup.to_string(),
-        player1_name: "AI (P1)".to_string(),
-        player2_name: "AI (P2)".to_string(),
+        player1_name: format!("AI ({:?})", ai1_strength),
+        player2_name: format!("AI ({:?})", ai2_strength),
         moves: game.history.clone(),
     };
 
