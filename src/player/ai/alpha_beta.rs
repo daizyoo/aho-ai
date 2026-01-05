@@ -15,6 +15,7 @@ pub struct AlphaBetaAI {
     nodes_evaluated: RefCell<usize>,
     time_limit: Duration,
     strength: AIStrength,
+    pub last_thinking: RefCell<Option<(usize, i32, usize, u128)>>, // (depth, score, nodes, time_ms)
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -32,6 +33,7 @@ impl AlphaBetaAI {
             nodes_evaluated: RefCell::new(0),
             time_limit: Duration::from_secs(if strength == AIStrength::Strong { 3 } else { 1 }),
             strength,
+            last_thinking: RefCell::new(None),
         }
     }
 
@@ -52,6 +54,8 @@ impl AlphaBetaAI {
             4
         };
 
+        let mut final_depth = 0;
+        let mut final_score = 0;
         for depth in 1..=max_depth {
             let score = self.negamax(board, depth, alpha, beta, self.player_id);
 
@@ -65,18 +69,41 @@ impl AlphaBetaAI {
             if let Some((_entry, mv)) = self.tt.borrow().get(hash) {
                 if let Some(m) = mv {
                     best_move = Some(m);
-                    
+                    final_depth = depth;
+                    final_score = score;
+
                     // Display thinking info
                     if std::env::var("VERBOSE_AI").is_ok() {
                         print!(
                             " [d={} s={} n={}]",
-                            depth, score, self.nodes_evaluated.borrow()
+                            depth,
+                            score,
+                            self.nodes_evaluated.borrow()
                         );
                         std::io::Write::flush(&mut std::io::stdout()).ok();
                     }
                 }
             }
         }
+
+        // Save thinking data
+        let elapsed = start_time.elapsed();
+        *self.last_thinking.borrow_mut() = Some((
+            final_depth,
+            final_score,
+            *self.nodes_evaluated.borrow(),
+            elapsed.as_millis(),
+        ));
+
+        // Save thinking data
+        let elapsed = start_time.elapsed();
+        *self.last_thinking.borrow_mut() = Some((
+            final_depth,
+            final_score,
+            *self.nodes_evaluated.borrow(),
+            elapsed.as_millis(),
+        ));
+
 
         best_move
     }

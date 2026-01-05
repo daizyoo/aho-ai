@@ -97,7 +97,7 @@ impl ReplayViewer {
                 player1_name: "?".to_string(),
                 player2_name: "?".to_string(),
                 moves: vec![],
-, thinking_data: None
+                thinking_data: None,
             },
             history,
             boards,
