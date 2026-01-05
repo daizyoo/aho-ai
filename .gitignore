@@ -1,9 +1,9 @@
 /target
 Cargo.lock
 Makefile.toml
-/selfplay_kifu
 /kifu
-/selfplay_results
-/config_backups
-/old
-/analysis_
+
+# Self-play results (regeneratable)
+selfplay_results/
+selfplay_kifu/
+config_backups/
