@@ -299,11 +299,21 @@ fn run_game_silent(
             if let Some((depth, score, nodes, time_ms)) =
                 unsafe { (*ai_ptr).last_thinking.borrow().clone() }
             {
+                // IMPORTANT: score is from the AI's perspective (always positive = good for AI)
+                // We need to convert to Player1's perspective for consistent analysis
+                // Player1: keep score as-is
+                // Player2: negate score (because it's from P2's perspective, we want P1's perspective)
+                let normalized_score = if current_player == crate::core::PlayerId::Player1 {
+                    score
+                } else {
+                    -score
+                };
+
                 thinking_data.push(ThinkingInfo {
                     move_number: move_count + 1,
                     player: format!("{:?}", current_player),
                     depth,
-                    score,
+                    score: normalized_score,
                     nodes,
                     time_ms,
                 });
@@ -361,34 +371,35 @@ fn display_progress(status: &[Option<bool>], total: usize) {
         std::io::stdout(),
         crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
         crossterm::cursor::MoveTo(0, 0)
-    ).ok();
-    
+    )
+    .ok();
+
     println!("=== Self-Play Progress ===\n");
-    
+
     // Display games in rows of 8
     for (idx, &state) in status.iter().enumerate() {
         let game_num = idx + 1;
         let symbol = match state {
-            None => "⏸",           // Not started
-            Some(false) => "▶",    // Running
-            Some(true) => "✓",     // Completed
+            None => "⏸",        // Not started
+            Some(false) => "▶", // Running
+            Some(true) => "✓",  // Completed
         };
-        
+
         print!("G{:2}:{} ", game_num, symbol);
-        
+
         // New line every 8 games
         if (idx + 1) % 8 == 0 {
             println!();
         }
     }
-    
+
     // Count completed and running
     let completed = status.iter().filter(|&&s| s == Some(true)).count();
     let running = status.iter().filter(|&&s| s == Some(false)).count();
-    
+
     println!("\n");
     println!("Running:   {} games", running);
     println!("Completed: {}/{}", completed, total);
-    
+
     std::io::Write::flush(&mut std::io::stdout()).ok();
 }
