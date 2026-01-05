@@ -92,7 +92,12 @@ impl ReplayViewer {
         // It's likely intended for testing or specific scenarios where `KifuData` isn't available.
         // For now, we'll use a dummy KifuData.
         Self {
-            kifu: crate::game::KifuData { board_setup: "Unknown".to_string(), player1_name: "?".to_string(), player2_name: "?".to_string(), moves: vec![] }, // Placeholder
+            kifu: crate::game::KifuData {
+                board_setup: "Unknown".to_string(),
+                player1_name: "?".to_string(),
+                player2_name: "?".to_string(),
+                moves: vec![],
+            }, // Placeholder
             history,
             boards,
             current_index: 0,
@@ -173,9 +178,29 @@ impl ReplayViewer {
             ));
 
             render_board(board, &state);
-            // The original println!("\r\nControls: ...") is now replaced by the new print! statement above.
-            // If it was intended to be kept, it would be redundant.
-            // Based on the diff, it seems the new print! statement replaces the old status_msg and controls line.
+
+            // Display game info AFTER board
+            println!("\r");
+            println!("=== Kifu Replay ===");
+            println!("Setup: {}", self.kifu.board_setup);
+            println!("{} vs {}", self.kifu.player1_name, self.kifu.player2_name);
+
+            // Display winner
+            let total_moves = self.kifu.moves.len();
+            if total_moves > 0 {
+                let winner = if total_moves % 2 == 1 {
+                    &self.kifu.player1_name
+                } else {
+                    &self.kifu.player2_name
+                };
+                println!("Winner: {}", winner);
+            }
+
+            println!(
+                "\rMove {}/{} | [←/→] Navigate | [q] Quit",
+                self.current_index + 1,
+                total_moves
+            );
 
             // Input
             if event::poll(Duration::from_millis(100))? {
