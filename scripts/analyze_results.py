@@ -10,7 +10,7 @@ from datetime import datetime
 
 def load_latest_results():
     """Load the most recent results file"""
-    results_files = sorted(Path(".").glob("selfplay_results_*.json"), 
+    results_files = sorted(Path("selfplay_results").glob("selfplay_results_*.json"), 
                           key=lambda p: p.stat().st_mtime, reverse=True)
     
     if not results_files:
@@ -102,7 +102,7 @@ def display_statistics(results):
 
 def compare_results():
     """Compare multiple result files"""
-    results_files = sorted(Path(".").glob("selfplay_results_*.json"), 
+    results_files = sorted(Path("selfplay_results").glob("selfplay_results_*.json"), 
                           key=lambda p: p.stat().st_mtime, reverse=True)[:5]
     
     if len(results_files) < 2:
