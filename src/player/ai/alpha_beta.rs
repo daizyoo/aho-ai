@@ -107,8 +107,9 @@ impl AlphaBetaAI {
         // Leaf node
         if depth == 0 {
             let score = eval::evaluate(board);
-            // Return score from current player's perspective
-            return if current_player == self.player_id {
+            // Negamax: always return score from current player's perspective
+            // evaluate() returns score from Player1's perspective
+            return if current_player == PlayerId::Player1 {
                 score
             } else {
                 -score
