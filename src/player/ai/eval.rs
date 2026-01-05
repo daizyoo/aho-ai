@@ -73,14 +73,14 @@ pub fn evaluate(board: &Board) -> i32 {
         // x: 1..=9, y: 1..=9 ? Or 0..=8?
         // Standard Shogi is 1..9.
         // Let's coerce to 0-8 for PST index.
-        let idx = ((pos.y as usize - 1) * 9) + (pos.x as usize - 1); // Assuming 1-based.
+        let idx = ((pos.y.saturating_sub(1) as usize) * 9) + (pos.x.saturating_sub(1) as usize);
 
         let pst = get_pst_value(piece.kind, idx, piece.owner);
 
         if piece.owner == PlayerId::Player1 {
             score += mat + pst;
         } else {
-            score -= mat + pst;
+            score = score.saturating_sub(mat + pst);
         }
     }
 
