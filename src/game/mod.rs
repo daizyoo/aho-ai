@@ -220,7 +220,7 @@ impl Game {
             match std::fs::File::create(&filepath) {
                 Ok(file) => {
                     let kifu_data = KifuData {
-                        board_setup: "Unknown".to_string(), // TODO: Track board setup
+                        board_setup: self.board_setup.clone(),
                         moves: self.history.clone(),
                     };
                     // Minified JSON (not pretty) to keep it lightweight
