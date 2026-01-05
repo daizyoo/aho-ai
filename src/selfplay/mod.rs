@@ -146,7 +146,7 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
         let mut game = Game::new(board);
         game.perspective_mode = PerspectiveMode::Fixed(PlayerId::Player1);
 
-        let (winner, move_count) = run_game_silent(&mut game, p1.as_ref(), p2.as_ref())?;
+        let (winner, move_count, thinking_data) = run_game_silent(&mut game, p1.as_ref(), p2.as_ref())?;
 
         let elapsed = start_time.elapsed();
         let result = GameResult {
@@ -199,7 +199,7 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
 
         // Save kifu if requested
         if config.save_kifus {
-            save_kifu(&game, game_num, &stats.board_setup, config.ai1_strength, config.ai2_strength)?;
+            save_kifu(&game, game_num, &stats.board_setup, config.ai1_strength, config.ai2_strength, thinking_data)?;
         }
     }
 
@@ -211,13 +211,14 @@ fn run_game_silent(
     game: &mut Game,
     p1: &dyn PlayerController,
     p2: &dyn PlayerController,
-) -> anyhow::Result<(Option<PlayerId>, usize)> {
+) -> anyhow::Result<(Option<PlayerId>, usize, Vec<ThinkingInfo>)> {
     let mut move_count = 0;
+    let mut thinking_data = Vec::new();
     let max_moves = 500; // Prevent infinite games
 
     loop {
         if move_count >= max_moves {
-            return Ok((None, move_count)); // Draw by move limit
+            return Ok((None, move_count, thinking_data.clone())); // Draw by move limit
         }
 
         let current_player = game.current_player;
@@ -232,9 +233,9 @@ fn run_game_silent(
             // Checkmate or stalemate
             let in_check = crate::logic::is_in_check(&game.board, current_player);
             if in_check {
-                return Ok((Some(current_player.opponent()), move_count));
+                return Ok((Some(current_player.opponent()), move_count, thinking_data.clone()));
             } else {
-                return Ok((None, move_count)); // Stalemate
+                return Ok((None, move_count, thinking_data.clone())); // Stalemate
             }
         }
 
@@ -252,12 +253,12 @@ fn run_game_silent(
             game.current_player = current_player.opponent();
             move_count += 1;
         } else {
-            return Ok((Some(current_player.opponent()), move_count)); // Resignation
+            return Ok((Some(current_player.opponent()), move_count, thinking_data.clone())); // Resignation
         }
     }
 }
 
-fn save_kifu(game: &Game, game_num: usize, board_setup: &str, ai1_strength: AIStrength, ai2_strength: AIStrength) -> anyhow::Result<()> {
+fn save_kifu(game: &Game, game_num: usize, board_setup: &str, ai1_strength: AIStrength, ai2_strength: AIStrength, thinking_data: Vec<ThinkingInfo>) -> anyhow::Result<()> {
     let kifu_dir = "selfplay_kifu";
     std::fs::create_dir_all(kifu_dir)?;
 
@@ -273,7 +274,7 @@ fn save_kifu(game: &Game, game_num: usize, board_setup: &str, ai1_strength: AISt
         player1_name: format!("AI ({:?})", ai1_strength),
         player2_name: format!("AI ({:?})", ai2_strength),
         moves: game.history.clone(),
-        thinking_data: None,
+        thinking_data: Some(thinking_data),
     };
 
     let file = std::fs::File::create(filename)?;

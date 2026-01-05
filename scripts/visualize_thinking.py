@@ -63,7 +63,7 @@ if __name__ == "__main__":
         kifu_path = sys.argv[1]
     else:
         # Find most recent kifu with thinking data
-        kifu_dir = Path("selfplay_kifu")
+        kifu_dir = Path("../selfplay_kifu")
         kifus = sorted(kifu_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
         
         for kifu_file in kifus:
