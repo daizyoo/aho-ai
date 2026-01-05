@@ -240,7 +240,7 @@ fn run_game_silent(
 
         // Display current move being calculated
         print!(
-            "\rMove {}: {:?} thinking...",
+            "\r\x1B[KMove {}: {:?} thinking...",
             move_count + 1,
             current_player
         );
