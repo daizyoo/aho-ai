@@ -1,5 +1,5 @@
-use crate::core::{Board, PieceKind, PlayerId};
 use super::config::AIConfig;
+use crate::core::{Board, PieceKind, PlayerId};
 use crate::player::ai::pst::get_pst_value;
 
 // Material Values (in CP) - Adjusted for Mixed
@@ -71,11 +71,10 @@ pub fn evaluate(board: &Board) -> i32 {
         // `Board` struct definition shows `pieces: HashMap<Position, Piece>`.
         // `Position` struct?
 
-        // Let's assume Position has x, y as (i8 or u8 or usize).
-        // x: 1..=9, y: 1..=9 ? Or 0..=8?
-        // Standard Shogi is 1..9.
-        // Let's coerce to 0-8 for PST index.
-        let idx = ((pos.y.saturating_sub(1) as usize) * 9) + (pos.x.saturating_sub(1) as usize);
+        // Position is 0-indexed (see core/types.rs:61)
+        // For a 9x9 board: x and y are in range 0..=8
+        // PST index = y * 9 + x (no adjustment needed)
+        let idx = (pos.y * 9) + pos.x;
 
         let pst = get_pst_value(piece.kind, idx, piece.owner);
 
