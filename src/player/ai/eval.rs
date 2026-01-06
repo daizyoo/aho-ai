@@ -1,20 +1,37 @@
+//! # Evaluation Module
+//!
+//! This module implements the static evaluation function for the game state.
+//! It converts a given `Board` state into a single integer score from the perspective
+//! of `Player1` (positive = Player1 advantage, negative = Player2 advantage).
+//!
+//! ## Scoring Strategy
+//! The score is composed of:
+//! 1. **Material Balance**: Sum of values of all pieces on the board.
+//! 2. **Piece-Square Tables (PST)**: Positional bonuses for pieces (e.g., King safety, advancing pawns).
+//! 3. **Hand Material**: Value of captured pieces (drops) with a multiplier bonus.
+//!
+//! ## Values
+//! - Material values are tuned for a mixed Shogi/Chess environment.
+//! - Hand pieces are valued slightly higher (1.2x) to encourage efficient reuse/drops.
+
 use super::config::AIConfig;
 use crate::core::{Board, PieceKind, PlayerId};
 use crate::player::ai::pst::get_pst_value;
 
-// Material Values (in CP) - Adjusted for Mixed
+// Material Values (in centipawns, CP)
+// Adjusted for Mixed Shogi/Chess environment
 const VAL_PAWN: i32 = 100;
 const VAL_LANCE: i32 = 300;
-const VAL_KNIGHT: i32 = 400; // Knight is strong in Shogi
+const VAL_KNIGHT: i32 = 400; // Knight is strong in Shogi due to jumping
 const VAL_SILVER: i32 = 500;
 const VAL_GOLD: i32 = 600;
 const VAL_BISHOP: i32 = 800;
 const VAL_ROOK: i32 = 1000;
-// King value effectively infinite for checkmate logic, but for eval we might use high number.
+/// King value is effectively infinite for checkmate search, but finite here to allow pruning.
 const VAL_KING: i32 = 20000;
 
-// Promoted
-const VAL_PRO_PAWN: i32 = 700; // Tokin ~ Gold
+// Promoted Pieces (Shogi)
+const VAL_PRO_PAWN: i32 = 700; // Tokin is as valuable as a Gold
 const VAL_PRO_LANCE: i32 = 700;
 const VAL_PRO_KNIGHT: i32 = 700;
 const VAL_PRO_SILVER: i32 = 700;
@@ -22,11 +39,11 @@ const VAL_PRO_BISHOP: i32 = 1200; // Horse
 const VAL_PRO_ROOK: i32 = 1500; // Dragon
 
 // Chess defaults
-const VAL_QUEEN: i32 = 1800; // Strongest
+const VAL_QUEEN: i32 = 1800; // Strongest sliding piece
 
-// Hand piece bonus (increased from 1.1 to 1.2 based on self-play analysis)
-// Analysis shows winners use drops 14.8% of moves - higher value encourages this
-
+/// Returns the static material value of a piece kind.
+///
+/// These values represent the inherent worth of a piece type, independent of its position.
 fn piece_val(k: PieceKind) -> i32 {
     match k {
         PieceKind::S_Pawn | PieceKind::C_Pawn => VAL_PAWN,
@@ -49,44 +66,42 @@ fn piece_val(k: PieceKind) -> i32 {
     }
 }
 
+/// Evaluates the current board state and returns a score from Player1's perspective.
+///
+/// Positive score indicates Player1 advantage.
+/// Negative score indicates Player2 advantage.
+///
+/// # Metrics
+/// - **Material**: Sum of pieces on board + PST bonuses.
+/// - **Hand**: Sum of captured pieces * multiplier (from config).
 pub fn evaluate(board: &Board) -> i32 {
     // Use cached config - zero overhead after first access
     let hand_multiplier = AIConfig::get().evaluation.hand_piece_bonus_multiplier as f32;
     let mut score = 0;
 
-    // 1. Material & PST
-    // Board stores pieces in a HashMap<Position, Piece>
-    // Iterating over keys gives random order, but score addition is commutative so it's fine.
+    // 1. Material & PST (Piece-Square Tables)
+    // Board stores pieces in a HashMap<Position, Piece>.
+    // Iteration order doesn't matter as addition is commutative.
     for (&pos, piece) in &board.pieces {
         let mat = piece_val(piece.kind);
 
-        // PST requires an index 0..80.
-        // Position has x, y.
-        // Board is 9x9.
-        // Index = y * 9 + x. (Assuming 0-indexed x,y)
-        // Position struct likely has 1-indexed or 0-indexed. Let's check `core/types.rs` or `board.rs` if needed.
-        // Assuming 1-indexed based on "9x9". Wait, usually 0-indexed in code.
-        // Let's assume 0-indexed for now (0..9).
-        // Actually, previous code used `board.cells.iter().enumerate()`.
-        // `Board` struct definition shows `pieces: HashMap<Position, Piece>`.
-        // `Position` struct?
-
-        // Position is 0-indexed (see core/types.rs:61)
-        // For a 9x9 board: x and y are in range 0..=8
-        // PST index = y * 9 + x (no adjustment needed)
+        // Calculate PST index (y * 9 + x) assuming 9x9 board and 0-indexed Position
         let idx = (pos.y * 9) + pos.x;
-
         let pst = get_pst_value(piece.kind, idx, piece.owner);
 
         if piece.owner == PlayerId::Player1 {
             score += mat + pst;
         } else {
+            // Player2's pieces count negatively against Player1
             score = score.saturating_sub(mat + pst);
         }
     }
 
     // 2. Hand Material
-    // board.hand is HashMap<PlayerId, HashMap<PieceKind, u8>>
+    // Evaluation favors having pieces in hand slightly more than raw material
+    // to account for drop flexibility.
+
+    // Add Player1's hand value
     if let Some(hand) = board.hand.get(&PlayerId::Player1) {
         for (kind, &count) in hand {
             if count > 0 {
@@ -96,6 +111,7 @@ pub fn evaluate(board: &Board) -> i32 {
         }
     }
 
+    // Subtract Player2's hand value
     if let Some(hand) = board.hand.get(&PlayerId::Player2) {
         for (kind, &count) in hand {
             if count > 0 {
