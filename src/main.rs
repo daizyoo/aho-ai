@@ -216,7 +216,7 @@ async fn run_local() -> anyhow::Result<()> {
     use crossterm::event::{self, Event, KeyCode};
     use std::time::Duration;
 
-    print!("\r\nSelect players:\r\n");
+    print!("\r\nSelect game mode:\r\n");
     print!("1. Human vs Human (TUI)\r\n");
     print!("\r\n");
     print!("--- Player vs AI ---\r\n");
@@ -266,7 +266,7 @@ async fn run_local() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let (p1, p2, perspective) = crate::ui::selection::select_player_controllers()?;
+    let (p1, p2, perspective) = crate::ui::selection::create_player_controllers(p_choice)?;
 
     let (board, setup_name) = crate::ui::selection::select_board_setup()?;
 
@@ -424,6 +424,7 @@ async fn run_selfplay() -> anyhow::Result<()> {
         board_setup,
         save_kifus: true,
         use_parallel: true, // Default to parallel
+        update_interval_moves: 1,
     };
 
     let stats = crate::selfplay::run_selfplay(config)?;
@@ -463,7 +464,12 @@ async fn run_selfplay() -> anyhow::Result<()> {
     );
     let file = std::fs::File::create(&results_file)?;
     serde_json::to_writer_pretty(file, &stats)?;
-    print!("\r\nResults saved to {}\r\n", results_file);
+
+    if let Ok(abs_path) = std::fs::canonicalize(&results_file) {
+        print!("\r\nResults saved to {}\r\n", abs_path.display());
+    } else {
+        print!("\r\nResults saved to {}\r\n", results_file);
+    }
 
     print!("\r\nPress any key to return to menu...\r\n");
     loop {

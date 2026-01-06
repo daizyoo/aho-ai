@@ -5,8 +5,12 @@ use crate::player::PlayerController;
 use crossterm::{execute, terminal};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::sync::{
+    atomic::{AtomicBool, AtomicUsize, Ordering},
+    Arc, Mutex,
+};
+use std::thread;
+use std::time::{Duration, Instant};
 
 #[derive(Clone, Copy)]
 pub enum BoardSetupType {
@@ -37,11 +41,11 @@ impl BoardSetupType {
         match self {
             BoardSetupType::StandardMixed => {
                 let map = crate::core::setup::get_standard_mixed_setup();
-                crate::core::setup::setup_from_strings(&map, true, false, None, None)
+                crate::core::setup::setup_from_strings(&map, true, true, None, None)
             }
             BoardSetupType::ReversedMixed => {
                 let map = crate::core::setup::get_reversed_mixed_setup();
-                crate::core::setup::setup_from_strings(&map, false, true, None, None)
+                crate::core::setup::setup_from_strings(&map, true, true, None, None)
             }
             BoardSetupType::ShogiOnly => {
                 let map = crate::core::setup::get_shogi_setup();
@@ -70,7 +74,8 @@ pub struct SelfPlayConfig {
     pub ai1_strength: AIStrength,
     pub ai2_strength: AIStrength,
     pub save_kifus: bool,
-    pub use_parallel: bool, // Enable/disable parallel execution
+    pub use_parallel: bool,
+    pub update_interval_moves: usize, // How often workers update shared state
 }
 
 #[derive(Serialize, Deserialize)]
@@ -131,14 +136,33 @@ pub struct GameExecutionResult {
     pub duration: std::time::Duration,
 }
 
+// State for a single worker slot
+struct WorkerState {
+    status: String,
+    game_id: Option<usize>,
+}
+
+struct SharedProgress {
+    workers: Mutex<Vec<WorkerState>>,
+    completed_games: AtomicUsize,
+    p1_wins: AtomicUsize,
+    p2_wins: AtomicUsize,
+    draws: AtomicUsize,
+    total_games: usize,
+    is_running: AtomicBool,
+}
+
 // Parallel self-play implementation
 pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
-    // Configure thread pool for optimal performance
-    // Using 6 threads on 8-core system leaves headroom for OS and background tasks
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(4)
-        .build_global()
-        .ok(); // Ignore error if already initialized
+    let num_threads = if config.use_parallel { 6 } else { 1 }; // Default to 6 for parallel
+
+    // Configure thread pool if parallel
+    if config.use_parallel {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build_global()
+            .ok();
+    }
 
     let mut stats = SelfPlayStats::new(
         config.board_setup.to_string(),
@@ -147,53 +171,148 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
     );
 
     let mode = if config.use_parallel {
-        "parallel (6 threads)"
+        if rayon::current_num_threads() > 0 {
+            format!("parallel ({} threads)", rayon::current_num_threads())
+        } else {
+            "parallel".to_string()
+        }
     } else {
-        "sequential"
+        "sequential".to_string()
     };
-    println!("Starting {} games ({} mode)...\r", config.num_games, mode);
-    println!(
-        "AI Strength: {:?} vs {:?}\r",
-        config.ai1_strength, config.ai2_strength
-    );
-    println!();
+
+    println!("\n=== Self-Play Configuration Details ===\r");
+    println!("Total Games: {}\r", config.num_games);
+    println!("Execution Mode: {}\r", mode);
+    println!("Board Setup: {}\r", config.board_setup);
+    println!("Update Interval: {} moves\r", config.update_interval_moves);
+
+    // Determine promotion status based on board setup
+    // For Mixed/Fair, both can promote. For others it might vary, but in this codebase promotion is generally enabled.
+    // We'll display "Enabled" for both unless we have logic to say otherwise.
+    let p1_promo = "Enabled";
+    let p2_promo = "Enabled";
+    println!("Promotion Rules:\r");
+    println!("  Player 1: {}\r", p1_promo);
+    println!("  Player 2: {}\r", p2_promo);
+
+    println!("Player 1 (AI): {:?}\r", config.ai1_strength);
+    println!("Player 2 (AI): {:?}\r", config.ai2_strength);
+    println!("Save Kifu: {}\r", config.save_kifus);
+    println!("=======================================\n\r");
+
+    println!("Starting execution...\r");
+
+    let num_display_slots = if config.use_parallel { num_threads } else { 1 };
+
+    // Reserve space for UI
+    println!("\r"); // Header line for Overall Progress
+    for _ in 0..num_display_slots {
+        println!("\r");
+    }
+
+    // Initialize shared state
+    let shared_state = Arc::new(SharedProgress {
+        workers: Mutex::new(
+            (0..num_display_slots)
+                .map(|_| WorkerState {
+                    status: "Waiting...".to_string(),
+                    game_id: None,
+                })
+                .collect(),
+        ),
+        completed_games: AtomicUsize::new(0),
+        p1_wins: AtomicUsize::new(0),
+        p2_wins: AtomicUsize::new(0),
+        draws: AtomicUsize::new(0),
+        total_games: config.num_games,
+        is_running: AtomicBool::new(true),
+    });
+
+    // Start UI thread
+    let ui_state = Arc::clone(&shared_state);
+    let ui_handle = thread::spawn(move || {
+        let mut stdout = std::io::stdout();
+        use std::io::Write;
+
+        while ui_state.is_running.load(Ordering::Relaxed)
+            || ui_state.completed_games.load(Ordering::Relaxed) < ui_state.total_games
+        {
+            // Draw
+            let completed = ui_state.completed_games.load(Ordering::Relaxed);
+            let total = ui_state.total_games;
+            let percent = if total > 0 {
+                (completed as f64 / total as f64) * 100.0
+            } else {
+                0.0
+            };
+
+            // Move cursor to top of reserved area
+            // Area:
+            // [Progress Header]
+            // [Slot 0]
+            // ...
+            // [Slot N-1]
+            // Cursor is currently at N+1 lines down (logically)
+
+            let lines_total = num_display_slots + 1;
+            write!(stdout, "\x1B[{}A", lines_total).ok();
+
+            // Draw Header
+            let p1_w = ui_state.p1_wins.load(Ordering::Relaxed);
+            let p2_w = ui_state.p2_wins.load(Ordering::Relaxed);
+            let d = ui_state.draws.load(Ordering::Relaxed);
+
+            let (p1_pct, p2_pct, d_pct) = if completed > 0 {
+                (
+                    (p1_w as f64 / completed as f64) * 100.0,
+                    (p2_w as f64 / completed as f64) * 100.0,
+                    (d as f64 / completed as f64) * 100.0,
+                )
+            } else {
+                (0.0, 0.0, 0.0)
+            };
+
+            write!(
+                stdout,
+                "\r\x1B[KProgress: {}/{} ({:.1}%) - P1: {} ({:.1}%), P2: {} ({:.1}%), Draw: {} ({:.1}%)\r\n",
+                completed, total, percent, p1_w, p1_pct, p2_w, p2_pct, d, d_pct
+            )
+            .ok();
+
+            // Draw Slots
+            {
+                let workers = ui_state.workers.lock().unwrap();
+                for w in workers.iter() {
+                    write!(stdout, "\r\x1B[K{}\r\n", w.status).ok();
+                }
+            }
+
+            stdout.flush().ok();
+
+            if ui_state.is_running.load(Ordering::Relaxed) == false && completed >= total {
+                break;
+            }
+
+            thread::sleep(Duration::from_millis(100));
+        }
+    });
 
     let results: Vec<_> = if config.use_parallel {
-        // Parallel execution with progress display
-        let game_status = Arc::new(Mutex::new(vec![None; config.num_games]));
-
         (1..=config.num_games)
             .into_par_iter()
-            .map(|game_num| {
-                // Update progress (Running)
-                {
-                    let mut status = game_status.lock().unwrap();
-                    status[game_num - 1] = Some(false);
-                    display_progress(&status, config.num_games);
-                }
-
-                let result = run_single_game(game_num, &config, true); // silent mode
-
-                // Update progress (Completed)
-                {
-                    let mut status = game_status.lock().unwrap();
-                    status[game_num - 1] = Some(true);
-                    display_progress(&status, config.num_games);
-                }
-                result
-            })
+            .map(|game_num| execute_game_with_monitoring(game_num, &config, &shared_state))
             .collect()
     } else {
-        // Sequential execution with simple counter
         (1..=config.num_games)
-            .map(|game_num| {
-                println!("Running game {}/{}...", game_num, config.num_games);
-                run_single_game(game_num, &config, false) // verbose mode
-            })
+            .map(|game_num| execute_game_with_monitoring(game_num, &config, &shared_state))
             .collect()
     };
 
-    println!("\n\nProcessing results...");
+    // Signal UI to stop
+    shared_state.is_running.store(false, Ordering::Relaxed);
+    ui_handle.join().ok();
+
+    println!("\r\n\r\nProcessing results...\r");
 
     // Process results sequentially
     for (idx, result) in results.into_iter().enumerate() {
@@ -208,7 +327,6 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
 
         stats.add_result(game_result);
 
-        // Save kifu if requested
         if config.save_kifus {
             save_kifu(
                 &exec_result.game,
@@ -221,47 +339,107 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
         }
     }
 
-    // Display final statistics
+    // Final Stats Display
     execute!(
         std::io::stdout(),
         terminal::Clear(terminal::ClearType::All),
         crossterm::cursor::MoveTo(0, 0)
     )?;
 
-    println!("=== Self-Play Complete ===\n");
-    println!("Total Games: {}", stats.total_games);
+    println!("=== Self-Play Complete ===\r\n");
+    println!("Total Games: {}\r", stats.total_games);
     println!(
-        "P1 Wins: {} ({:.1}%)",
+        "P1 Wins: {} ({:.1}%)\r",
         stats.p1_wins,
         stats.p1_wins as f64 / stats.total_games as f64 * 100.0
     );
     println!(
-        "P2 Wins: {} ({:.1}%)",
+        "P2 Wins: {} ({:.1}%)\r",
         stats.p2_wins,
         stats.p2_wins as f64 / stats.total_games as f64 * 100.0
     );
     println!(
-        "Draws: {} ({:.1}%)",
+        "Draws: {} ({:.1}%)\r",
         stats.draws,
         stats.draws as f64 / stats.total_games as f64 * 100.0
     );
-    println!("Avg Moves: {:.1}", stats.avg_moves);
-    println!("Avg Time: {:.1}s\n", stats.avg_time_ms / 1000.0);
+    println!("Avg Moves: {:.1}\r", stats.avg_moves);
+    println!("Avg Time: {:.1}s\r\n", stats.avg_time_ms / 1000.0);
 
     Ok(stats)
+}
+
+fn execute_game_with_monitoring(
+    game_num: usize,
+    config: &SelfPlayConfig,
+    shared: &Arc<SharedProgress>,
+) -> anyhow::Result<GameExecutionResult> {
+    // Allocate slot
+    let slot_idx = {
+        let mut workers = shared.workers.lock().unwrap();
+        if let Some(idx) = workers.iter().position(|w| w.game_id.is_none()) {
+            workers[idx].game_id = Some(game_num);
+            workers[idx].status = format!("Game {}: Starting...", game_num);
+            idx
+        } else {
+            // Fallback: use id modulo slots (collision possible in display but logic safe)
+            game_num % workers.len()
+        }
+    };
+
+    // Callback
+    let update_interval = config.update_interval_moves;
+    let shared_clone = Arc::clone(shared);
+    let on_progress = move |moves: usize, player: PlayerId| {
+        if moves % update_interval == 0 {
+            let mut workers = shared_clone.workers.lock().unwrap();
+            if slot_idx < workers.len() {
+                workers[slot_idx].status =
+                    format!("Game {}: Move {} ({:?})", game_num, moves + 1, player);
+            }
+        }
+    };
+
+    let result = run_single_game(game_num, config, true, Some(Box::new(on_progress)));
+
+    // Completion update
+    {
+        // Update stats
+        if let Ok(ref res) = result {
+            match res.winner {
+                Some(PlayerId::Player1) => {
+                    shared.p1_wins.fetch_add(1, Ordering::Relaxed);
+                }
+                Some(PlayerId::Player2) => {
+                    shared.p2_wins.fetch_add(1, Ordering::Relaxed);
+                }
+                None => {
+                    shared.draws.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+        }
+
+        let mut workers = shared.workers.lock().unwrap();
+        if slot_idx < workers.len() {
+            workers[slot_idx].status = format!("Game {}: Finished", game_num);
+            workers[slot_idx].game_id = None; // Free slot
+        }
+        shared.completed_games.fetch_add(1, Ordering::Relaxed);
+    }
+
+    result
 }
 
 fn run_single_game(
     _game_num: usize,
     config: &SelfPlayConfig,
     silent: bool,
+    on_progress: Option<Box<dyn Fn(usize, PlayerId) + Send + Sync>>,
 ) -> anyhow::Result<GameExecutionResult> {
     let start_time = Instant::now();
 
-    // Create board
     let board = config.board_setup.create_board();
 
-    // Create AI players
     let p1: Box<dyn PlayerController> = Box::new(AlphaBetaAI::new(
         PlayerId::Player1,
         "AI-P1",
@@ -273,12 +451,11 @@ fn run_single_game(
         config.ai2_strength,
     ));
 
-    // Run game
     let mut game = Game::new(board);
     game.perspective_mode = PerspectiveMode::Fixed(PlayerId::Player1);
 
     let (winner, move_count, thinking_data) =
-        run_game_silent(&mut game, p1.as_ref(), p2.as_ref(), silent)?;
+        run_game_silent(&mut game, p1.as_ref(), p2.as_ref(), silent, on_progress)?;
 
     let elapsed = start_time.elapsed();
 
@@ -290,19 +467,21 @@ fn run_single_game(
         duration: elapsed,
     })
 }
+
 fn run_game_silent(
     game: &mut Game,
     p1: &dyn PlayerController,
     p2: &dyn PlayerController,
     silent: bool,
+    on_progress: Option<Box<dyn Fn(usize, PlayerId) + Send + Sync>>,
 ) -> anyhow::Result<(Option<PlayerId>, usize, Vec<ThinkingInfo>)> {
     let mut move_count = 0;
     let mut thinking_data = Vec::new();
-    let max_moves = 500; // Prevent infinite games
+    let max_moves = 500;
 
     loop {
         if move_count >= max_moves {
-            return Ok((None, move_count, thinking_data.clone())); // Draw by move limit
+            return Ok((None, move_count, thinking_data.clone()));
         }
 
         let current_player = game.current_player;
@@ -311,7 +490,10 @@ fn run_game_silent(
             PlayerId::Player2 => p2,
         };
 
-        // Sennichite Check
+        if let Some(ref cb) = on_progress {
+            cb(move_count, current_player);
+        }
+
         let hash_count = game
             .board
             .history
@@ -319,13 +501,12 @@ fn run_game_silent(
             .filter(|&&h| h == game.board.zobrist_hash)
             .count();
         if hash_count >= 4 {
-            return Ok((None, move_count, thinking_data.clone())); // Draw by Sennichite
+            return Ok((None, move_count, thinking_data.clone()));
         }
 
         let legal_moves = crate::logic::legal_moves(&game.board, current_player);
 
         if legal_moves.is_empty() {
-            // Checkmate or stalemate
             let in_check = crate::logic::is_in_check(&game.board, current_player);
             if in_check {
                 return Ok((
@@ -334,11 +515,10 @@ fn run_game_silent(
                     thinking_data.clone(),
                 ));
             } else {
-                return Ok((None, move_count, thinking_data.clone())); // Stalemate
+                return Ok((None, move_count, thinking_data.clone()));
             }
         }
 
-        // Display current move being calculated (only in verbose mode)
         if !silent {
             print!(
                 "\r\x1B[KMove {}: {:?} thinking...",
@@ -349,16 +529,11 @@ fn run_game_silent(
         }
 
         if let Some(chosen_move) = controller.choose_move(&game.board, &legal_moves) {
-            // Collect thinking data from AI
             let ai_ptr =
                 controller as *const dyn crate::player::PlayerController as *const AlphaBetaAI;
             if let Some((depth, score, nodes, time_ms)) =
                 unsafe { *(*ai_ptr).last_thinking.borrow() }
             {
-                // IMPORTANT: score is from the AI's perspective (always positive = good for AI)
-                // We need to convert to Player1's perspective for consistent analysis
-                // Player1: keep score as-is
-                // Player2: negate score (because it's from P2's perspective, we want P1's perspective)
                 let normalized_score = if current_player == crate::core::PlayerId::Player1 {
                     score
                 } else {
@@ -384,7 +559,7 @@ fn run_game_silent(
                 Some(current_player.opponent()),
                 move_count,
                 thinking_data.clone(),
-            )); // Resignation
+            ));
         }
     }
 }
@@ -397,7 +572,6 @@ fn save_kifu(
     ai2_strength: AIStrength,
     thinking_data: Vec<ThinkingInfo>,
 ) -> anyhow::Result<()> {
-    // Create board-type-specific directory
     let base_dir = "selfplay_kifu";
     let board_dir = format!("{}/{}", base_dir, board_setup);
     std::fs::create_dir_all(&board_dir)?;
@@ -420,22 +594,11 @@ fn save_kifu(
     let file = std::fs::File::create(&filename)?;
     serde_json::to_writer_pretty(file, &kifu_data)?;
 
+    if let Ok(abs_path) = std::fs::canonicalize(&filename) {
+        println!("Saved kifu to: {}\r", abs_path.display());
+    } else {
+        println!("Saved kifu to: {}\r", filename);
+    }
+
     Ok(())
-}
-
-// Display progress as simple counter (reliable in parallel execution)
-fn display_progress(status: &[Option<bool>], total: usize) {
-    let completed = status.iter().filter(|&&s| s == Some(true)).count();
-    let running = status.iter().filter(|&&s| s == Some(false)).count();
-
-    // Clear line and show simple progress
-    print!("\r\x1B[K");
-    print!(
-        "Progress: {} running, {} completed / {} total ({:.1}%)",
-        running,
-        completed,
-        total,
-        (completed as f64 / total as f64) * 100.0
-    );
-    std::io::Write::flush(&mut std::io::stdout()).ok();
 }

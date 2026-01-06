@@ -33,6 +33,25 @@ pub fn pseudo_legal_moves(board: &Board, player: PlayerId) -> Vec<Move> {
                         for x in 0..board.width {
                             let to = Position::new(x, y);
                             if board.get_piece(to).is_none() {
+                                // Check for illegal drops (places where piece cannot move)
+                                match kind {
+                                    PieceKind::S_Pawn | PieceKind::S_Lance => {
+                                        if (player == PlayerId::Player1 && y == 0)
+                                            || (player == PlayerId::Player2 && y == 8)
+                                        {
+                                            continue;
+                                        }
+                                    }
+                                    PieceKind::S_Knight => {
+                                        if (player == PlayerId::Player1 && y <= 1)
+                                            || (player == PlayerId::Player2 && y >= 7)
+                                        {
+                                            continue;
+                                        }
+                                    }
+                                    _ => {}
+                                }
+
                                 if kind == PieceKind::S_Pawn && has_pawn_in_column(board, player, x)
                                 {
                                     continue;

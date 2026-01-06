@@ -229,14 +229,14 @@ impl PlayerController for TuiController {
                                                 }
                                             } else {
                                                 // Chess-style: Multiple promotion options OR mandatory choice
-                                                println!("\nSelect promotion:");
+                                                println!("\nSelect promotion:\r");
                                                 for (i, (k, _)) in
                                                     promote_options.iter().enumerate()
                                                 {
-                                                    println!("[{}] Promote to {:?}", i + 1, k);
+                                                    println!("[{}] Promote to {:?}\r", i + 1, k);
                                                 }
                                                 if has_non_promote {
-                                                    println!("[0] Don't promote");
+                                                    println!("[0] Don't promote\r");
                                                 }
 
                                                 loop {

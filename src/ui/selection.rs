@@ -4,38 +4,15 @@ use crate::player::PlayerController;
 use crossterm::event::{self, Event, KeyCode};
 use std::time::Duration;
 
-pub fn select_player_controllers() -> anyhow::Result<(
+pub fn create_player_controllers(
+    choice: &str,
+) -> anyhow::Result<(
     Box<dyn PlayerController>,
     Box<dyn PlayerController>,
     PerspectiveMode,
 )> {
-    print!("\r\nSelect game mode:\r\n");
-    print!("1. Human vs Human\r\n");
-    print!("2. Human vs AI (Weighted Random - Very Weak)\r\n");
-    print!("3. Human vs AI (Minimax - Weak)\r\n");
-    print!("4. Human vs AI (AlphaBeta - Light/Medium)\r\n");
-    print!("5. Human vs AI (AlphaBeta - Strong)\r\n");
-    print!("6. AI vs AI (Strong vs Strong)\r\n");
-
-    let p_choice = loop {
-        if event::poll(Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('1') => break "1",
-                    KeyCode::Char('2') => break "2",
-                    KeyCode::Char('3') => break "3",
-                    KeyCode::Char('4') => break "4",
-                    KeyCode::Char('5') => break "5",
-                    KeyCode::Char('6') => break "6",
-                    KeyCode::Char('q') => return Err(anyhow::anyhow!("Canceled")),
-                    _ => {}
-                }
-            }
-        }
-    };
-
-    Ok(match p_choice {
-        "1" => (
+    match choice {
+        "1" => Ok((
             Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
                 "Player1",
@@ -45,8 +22,8 @@ pub fn select_player_controllers() -> anyhow::Result<(
                 "Player2",
             )),
             PerspectiveMode::AutoFlip,
-        ),
-        "2" => (
+        )),
+        "2" => Ok((
             Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
                 "Player1",
@@ -56,8 +33,8 @@ pub fn select_player_controllers() -> anyhow::Result<(
                 "WeightedAI",
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        "3" => (
+        )),
+        "3" => Ok((
             Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
                 "Player1",
@@ -67,8 +44,8 @@ pub fn select_player_controllers() -> anyhow::Result<(
                 "MinimaxAI",
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        "4" => (
+        )),
+        "4" => Ok((
             Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
                 "Player1",
@@ -79,8 +56,8 @@ pub fn select_player_controllers() -> anyhow::Result<(
                 crate::player::ai::AIStrength::Light,
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        "5" => (
+        )),
+        "5" => Ok((
             Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
                 "Player1",
@@ -91,8 +68,8 @@ pub fn select_player_controllers() -> anyhow::Result<(
                 crate::player::ai::AIStrength::Strong,
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        "6" => (
+        )),
+        "6" => Ok((
             Box::new(crate::player::ai::AlphaBetaAI::new(
                 PlayerId::Player1,
                 "AlphaBeta-Strong-1",
@@ -104,19 +81,9 @@ pub fn select_player_controllers() -> anyhow::Result<(
                 crate::player::ai::AIStrength::Strong,
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
-        ),
-        _ => (
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player1,
-                "Player1",
-            )),
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player2,
-                "Player2",
-            )),
-            PerspectiveMode::AutoFlip,
-        ),
-    })
+        )),
+        _ => Err(anyhow::anyhow!("Invalid selection")),
+    }
 }
 
 fn ask_hand_config(player_name: &str) -> anyhow::Result<Option<bool>> {
