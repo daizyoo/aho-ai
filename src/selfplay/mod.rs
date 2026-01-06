@@ -12,7 +12,7 @@ use std::sync::{
 use std::thread;
 use std::time::{Duration, Instant};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum BoardSetupType {
     StandardMixed,
     ReversedMixed,

@@ -4,6 +4,7 @@ mod game;
 mod logic;
 #[cfg(test)]
 mod logic_tests;
+mod ml;
 mod network;
 mod player;
 mod selfplay;
@@ -220,15 +221,13 @@ async fn run_local() -> anyhow::Result<()> {
     print!("1. Human vs Human (TUI)\r\n");
     print!("\r\n");
     print!("--- Player vs AI ---\r\n");
-    print!("2. Player vs Weighted Random AI\r\n");
-    print!("3. Player vs Minimax AI (Depth 2)\r\n");
-    print!("4. Player vs Alpha-Beta AI (Light)\r\n");
-    print!("5. Player vs Alpha-Beta AI (Strong)\r\n");
+    print!("2. Player vs Alpha-Beta AI (Light)\r\n");
+    print!("3. Player vs Alpha-Beta AI (Strong)\r\n");
     print!("\r\n");
     print!("--- AI vs AI ---\r\n");
-    print!("6. Alpha-Beta AI (Strong) vs Alpha-Beta AI (Strong)\r\n");
+    print!("4. Alpha-Beta AI (Strong) vs Alpha-Beta AI (Strong)\r\n");
     print!("\r\n");
-    print!("7. Replay Game Record (Kifu)\r\n");
+    print!("5. Replay Game Record (Kifu)\r\n");
 
     let p_choice = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -239,8 +238,6 @@ async fn run_local() -> anyhow::Result<()> {
                     KeyCode::Char('3') => break "3",
                     KeyCode::Char('4') => break "4",
                     KeyCode::Char('5') => break "5",
-                    KeyCode::Char('6') => break "6",
-                    KeyCode::Char('7') => break "7",
                     KeyCode::Char('q') => return Ok(()),
                     _ => {}
                 }
@@ -248,7 +245,7 @@ async fn run_local() -> anyhow::Result<()> {
         }
     };
 
-    if p_choice == "7" {
+    if p_choice == "5" {
         let kifu_dir = "kifu";
         if std::fs::read_dir(kifu_dir).is_err() {
             std::fs::create_dir_all(kifu_dir)?;
@@ -267,6 +264,20 @@ async fn run_local() -> anyhow::Result<()> {
     }
 
     let (p1, p2, perspective) = crate::ui::selection::create_player_controllers(p_choice)?;
+
+    // Display evaluator if AI is involved
+    if p_choice == "2" || p_choice == "3" || p_choice == "4" {
+        use crate::core::PlayerId;
+        use crate::player::ai::alpha_beta::AlphaBetaAI;
+        let temp_ai = AlphaBetaAI::new(
+            PlayerId::Player1,
+            "Display",
+            crate::player::ai::alpha_beta::AIStrength::Strong,
+        );
+        print!("\r\n[AI Configuration]\r\n");
+        print!("Evaluator: {}\r\n\r\n", temp_ai.evaluator_name());
+        std::thread::sleep(std::time::Duration::from_millis(500)); // Brief pause to show message
+    }
 
     let (board, setup_name) = crate::ui::selection::select_board_setup()?;
 
@@ -427,10 +438,25 @@ async fn run_selfplay() -> anyhow::Result<()> {
         update_interval_moves: 1,
     };
 
+    // Display configuration before starting
+    use crate::core::PlayerId;
+    use crate::player::ai::alpha_beta::AlphaBetaAI;
+    let temp_ai = AlphaBetaAI::new(PlayerId::Player1, "Display", config.ai1_strength);
+
+    print!("\r\n");
+    print!("=== Self-Play Configuration ===\r\n");
+    print!("Games: {}\r\n", num_games);
+    print!("Board: {:?}\r\n", board_setup);
+    print!("AI Strength: {:?}\r\n", ai1_strength);
+    print!("Evaluator: {}\r\n", temp_ai.evaluator_name());
+    print!("==============================\r\n\r\n");
+    std::thread::sleep(std::time::Duration::from_secs(2));
+
     let stats = crate::selfplay::run_selfplay(config)?;
 
     // Display results
     print!("\r\n\r\n=== Self-Play Results ===\r\n");
+    print!("Evaluator: {}\r\n", temp_ai.evaluator_name());
     print!("Total Games: {}\r\n", stats.total_games);
     print!(
         "Player 1 Wins: {} ({:.1}%)\r\n",

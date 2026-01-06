@@ -7,3 +7,7 @@ Makefile.toml
 selfplay_results/
 selfplay_kifu/
 config_backups/
+
+# Temporary and backup files
+*.tmp
+*.bak

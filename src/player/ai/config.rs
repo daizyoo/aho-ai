@@ -14,6 +14,14 @@ pub struct EvaluationConfig {
     pub hand_piece_bonus_multiplier: f64,
     pub material_values: HashMap<String, i32>,
     pub pst_enabled: bool,
+    #[serde(default = "default_evaluator_type")]
+    pub evaluator_type: String,
+    #[serde(default)]
+    pub nn_model_path: Option<String>,
+}
+
+fn default_evaluator_type() -> String {
+    "Handcrafted".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +71,8 @@ impl Default for AIConfig {
                 hand_piece_bonus_multiplier: 1.1,
                 material_values,
                 pst_enabled: true,
+                evaluator_type: "Handcrafted".to_string(),
+                nn_model_path: None,
             },
             search: SearchConfig {
                 max_depth_light: 2,

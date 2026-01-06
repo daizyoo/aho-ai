@@ -1,4 +1,5 @@
-use super::eval;
+use super::eval::{self, HandcraftedEvaluator};
+use super::evaluator::Evaluator;
 use super::tt::{Bound, TranspositionTable};
 use crate::core::{Board, Move, PlayerId};
 use crate::logic::ZobristHasher;
@@ -16,7 +17,11 @@ pub struct AlphaBetaAI {
     time_limit: Duration,
     strength: AIStrength,
     pub last_thinking: RefCell<Option<(usize, i32, usize, u128)>>, // (depth, score, nodes, time_ms)
+    killer_moves: RefCell<[[Option<Move>; 2]; 64]>,                // Ply indexed
+    evaluator: RefCell<Box<dyn Evaluator>>,
 }
+
+const MAX_PLY: usize = 64;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum AIStrength {
@@ -26,6 +31,44 @@ pub enum AIStrength {
 
 impl AlphaBetaAI {
     pub fn new(player_id: PlayerId, name: &str, strength: AIStrength) -> Self {
+        use crate::player::ai::config::AIConfig;
+
+        // Create evaluator based on config
+        let config = AIConfig::get();
+        let evaluator: Box<dyn Evaluator> = match config.evaluation.evaluator_type.as_str() {
+            "NeuralNetwork" => {
+                #[cfg(feature = "ml")]
+                {
+                    use crate::ml::nn_evaluator::NNEvaluator;
+
+                    if let Some(ref model_path) = config.evaluation.nn_model_path {
+                        match NNEvaluator::load(model_path) {
+                            Ok(nn_eval) => {
+                                // Successfully loaded (silent)
+                                Box::new(nn_eval)
+                            }
+                            Err(_e) => {
+                                // Failed to load, fallback (silent)
+                                Box::new(HandcraftedEvaluator::new())
+                            }
+                        }
+                    } else {
+                        // No model path (silent)
+                        Box::new(HandcraftedEvaluator::new())
+                    }
+                }
+                #[cfg(not(feature = "ml"))]
+                {
+                    // ML feature not enabled (silent)
+                    Box::new(HandcraftedEvaluator::new())
+                }
+            }
+            _ => {
+                // Default: Handcrafted evaluator
+                Box::new(HandcraftedEvaluator::new())
+            }
+        };
+
         Self {
             player_id,
             name: name.to_string(),
@@ -34,13 +77,21 @@ impl AlphaBetaAI {
             time_limit: Duration::from_secs(if strength == AIStrength::Strong { 3 } else { 1 }),
             strength,
             last_thinking: RefCell::new(None),
+            killer_moves: RefCell::new([[None; 2]; MAX_PLY]),
+            evaluator: RefCell::new(evaluator),
         }
+    }
+
+    /// Get the name of the evaluator being used
+    pub fn evaluator_name(&self) -> String {
+        self.evaluator.borrow().name().to_string()
     }
 
     // --- Search Root (Iterative Deepening) ---
     fn search_root(&self, board: &Board) -> Option<Move> {
         self.tt.borrow_mut().clear(); // Clear TT for new search
         *self.nodes_evaluated.borrow_mut() = 0;
+        *self.killer_moves.borrow_mut() = [[None; 2]; MAX_PLY];
         let start_time = Instant::now();
 
         let mut best_move = None;
@@ -57,7 +108,9 @@ impl AlphaBetaAI {
         let mut final_depth = 0;
         let mut final_score = 0;
         for depth in 1..=max_depth {
-            let score = self.negamax(board, depth, alpha, beta, self.player_id);
+            // Clear killer moves for new ID iteration? No, keep them within same search.
+            // But we should probably clear them between searches (done in search_root start)
+            let score = self.negamax(board, depth, alpha, beta, self.player_id, 0);
 
             // Check time
             if start_time.elapsed() > self.time_limit {
@@ -104,6 +157,7 @@ impl AlphaBetaAI {
         mut alpha: i32,
         beta: i32,
         current_player: PlayerId,
+        ply: usize,
     ) -> i32 {
         *self.nodes_evaluated.borrow_mut() += 1;
 
@@ -141,14 +195,7 @@ impl AlphaBetaAI {
 
         // Leaf node
         if depth == 0 {
-            let score = eval::evaluate(board);
-            // Negamax: always return score from current player's perspective
-            // evaluate() returns score from Player1's perspective
-            return if current_player == PlayerId::Player1 {
-                score
-            } else {
-                -score
-            };
+            return self.qsearch(board, alpha, beta, current_player);
         }
 
         let in_check = is_in_check(board, current_player);
@@ -172,6 +219,7 @@ impl AlphaBetaAI {
                     -beta,
                     -beta + 1,
                     current_player.opponent(),
+                    ply + 1 + r, // Approximate ply
                 );
 
                 if score >= beta {
@@ -181,7 +229,7 @@ impl AlphaBetaAI {
         }
 
         // Move Ordering
-        self.order_moves(board, &mut moves, current_player);
+        self.order_moves(board, &mut moves, current_player, ply);
 
         let mut best_score = -200000;
         let mut best_move = None;
@@ -226,6 +274,7 @@ impl AlphaBetaAI {
                     -alpha - 1,
                     -alpha,
                     current_player.opponent(),
+                    ply + 1,
                 );
 
                 // Re-search if necessary
@@ -236,6 +285,7 @@ impl AlphaBetaAI {
                         -beta,
                         -alpha,
                         current_player.opponent(),
+                        ply + 1,
                     );
                 }
             } else {
@@ -246,6 +296,7 @@ impl AlphaBetaAI {
                     -beta,
                     -alpha,
                     current_player.opponent(),
+                    ply + 1,
                 );
             }
 
@@ -257,6 +308,21 @@ impl AlphaBetaAI {
             alpha = alpha.max(score);
 
             if alpha >= beta {
+                // Beta Cutoff
+                let is_capture = match mv {
+                    Move::Normal { to, .. } => board.get_piece(*to).is_some(),
+                    _ => false,
+                };
+
+                // Store Killer Move (if not capture and valid ply)
+                if !is_capture && ply < MAX_PLY {
+                    let mut killers = self.killer_moves.borrow_mut();
+                    if killers[ply][0].as_ref() != Some(mv) {
+                        killers[ply][1] = killers[ply][0].clone();
+                        killers[ply][0] = Some(mv.clone());
+                    }
+                }
+
                 break; // Beta cutoff
             }
         }
@@ -277,9 +343,23 @@ impl AlphaBetaAI {
         best_score
     }
 
-    fn order_moves(&self, board: &Board, moves: &mut [Move], _player: PlayerId) {
+    fn order_moves(&self, board: &Board, moves: &mut [Move], _player: PlayerId, ply: usize) {
+        // Collect killer moves for this ply
+        let killers = if ply < MAX_PLY {
+            self.killer_moves.borrow()[ply].clone()
+        } else {
+            [None, None]
+        };
+
         moves.sort_by_key(|mv| {
             let mut score = 0;
+            // Killer Move Bonus
+            if Some(mv) == killers[0].as_ref() {
+                score -= 20000; // Priority over captures (captures are usually checked by QS anyway, but here we prioritize quiet refutations)
+            } else if Some(mv) == killers[1].as_ref() {
+                score -= 19000;
+            }
+
             if let Move::Normal { to, promote, .. } = mv {
                 if board.get_piece(*to).is_some() {
                     score -= 10000; // Capture bonus
@@ -290,6 +370,61 @@ impl AlphaBetaAI {
             }
             score
         });
+    }
+
+    // --- Quiescence Search ---
+    // Searches only captures and promotions to reach a stable state.
+    fn qsearch(&self, board: &Board, mut alpha: i32, beta: i32, current_player: PlayerId) -> i32 {
+        *self.nodes_evaluated.borrow_mut() += 1;
+
+        // 1. Stand-pat (Static Evaluation)
+        let eval_score = self.evaluator.borrow_mut().evaluate(board);
+        let stand_pat = if current_player == PlayerId::Player1 {
+            eval_score
+        } else {
+            -eval_score
+        };
+
+        if stand_pat >= beta {
+            return beta;
+        }
+
+        if stand_pat > alpha {
+            alpha = stand_pat;
+        }
+
+        // 2. Generate and filter tactical moves (Captures & Promotions only)
+        // Note: We use legal_moves then filter. Efficient enough for now.
+        let moves = legal_moves(board, current_player);
+        let mut tactical_moves: Vec<_> = moves
+            .into_iter()
+            .filter(|mv| match mv {
+                Move::Normal { to, promote, .. } => {
+                    board.get_piece(*to).is_some() || promote.is_some()
+                }
+                _ => false, // Drops are typically not considered in basic QS unless they give check (complex)
+            })
+            .collect();
+
+        if tactical_moves.is_empty() {
+            return alpha;
+        }
+
+        self.order_moves(board, &mut tactical_moves, current_player, MAX_PLY); // No killer in QS
+
+        for mv in tactical_moves {
+            let next_board = apply_move(board, &mv, current_player);
+            let score = -self.qsearch(&next_board, -beta, -alpha, current_player.opponent());
+
+            if score >= beta {
+                return beta;
+            }
+            if score > alpha {
+                alpha = score;
+            }
+        }
+
+        alpha
     }
 }
 

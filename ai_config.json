@@ -12,7 +12,9 @@
             "rook": 1000,
             "king": 10000
         },
-        "pst_enabled": true
+        "pst_enabled": true,
+        "evaluator_type": "NeuralNetwork",
+        "nn_model_path": "models/shogi_model.onnx"
     },
     "search": {
         "max_depth_light": 2,

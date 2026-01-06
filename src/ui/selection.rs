@@ -28,28 +28,6 @@ pub fn create_player_controllers(
                 PlayerId::Player1,
                 "Player1",
             )),
-            Box::new(crate::player::ai::WeightedRandomAI::new(
-                PlayerId::Player2,
-                "WeightedAI",
-            )),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        )),
-        "3" => Ok((
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player1,
-                "Player1",
-            )),
-            Box::new(crate::player::ai::MinimaxAI::new(
-                PlayerId::Player2,
-                "MinimaxAI",
-            )),
-            PerspectiveMode::Fixed(PlayerId::Player1),
-        )),
-        "4" => Ok((
-            Box::new(crate::player::TuiController::new(
-                PlayerId::Player1,
-                "Player1",
-            )),
             Box::new(crate::player::ai::AlphaBetaAI::new(
                 PlayerId::Player2,
                 "AlphaBeta-Light",
@@ -57,7 +35,7 @@ pub fn create_player_controllers(
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
         )),
-        "5" => Ok((
+        "3" => Ok((
             Box::new(crate::player::TuiController::new(
                 PlayerId::Player1,
                 "Player1",
@@ -69,7 +47,7 @@ pub fn create_player_controllers(
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
         )),
-        "6" => Ok((
+        "4" => Ok((
             Box::new(crate::player::ai::AlphaBetaAI::new(
                 PlayerId::Player1,
                 "AlphaBeta-Strong-1",

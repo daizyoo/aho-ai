@@ -1,57 +1,37 @@
 {
-  "ShogiOnly (Light vs Light)": {
-    "total_games": 80,
-    "p1_wins": 31,
-    "p2_wins": 42,
-    "draws": 7,
-    "p1_win_rate": 38.75,
-    "p2_win_rate": 52.5,
-    "draw_rate": 8.75,
-    "avg_moves": 147.8625,
-    "avg_time_s": 807.49925,
+  "ChessOnly (Strong vs Strong)": {
+    "total_games": 20,
+    "p1_wins": 6,
+    "p2_wins": 9,
+    "draws": 5,
+    "p1_win_rate": 30.0,
+    "p2_win_rate": 45.0,
+    "draw_rate": 25.0,
+    "avg_moves": 182.05,
+    "avg_time_s": 397.93640000000005,
     "source_files": [
-      "selfplay_results_20260106_002930.json",
-      "selfplay_results_20260105_221727.json",
-      "selfplay_results_20260106_010346.json",
-      "selfplay_results_20260106_021027.json",
-      "selfplay_results_20260105_212034.json"
+      "selfplay_results_20260106_235017.json",
+      "selfplay_results_20260107_012956.json"
     ],
-    "board_setup": "ShogiOnly",
-    "ai1_strength": "Light",
-    "ai2_strength": "Light"
-  },
-  "ShogiOnly (Strong vs Strong)": {
-    "total_games": 80,
-    "p1_wins": 37,
-    "p2_wins": 31,
-    "draws": 12,
-    "p1_win_rate": 46.25,
-    "p2_win_rate": 38.75,
-    "draw_rate": 15.0,
-    "avg_moves": 178.06250000000003,
-    "avg_time_s": 1783.0208750000006,
-    "source_files": [
-      "selfplay_results_20260106_123640.json"
-    ],
-    "board_setup": "ShogiOnly",
+    "board_setup": "ChessOnly",
     "ai1_strength": "Strong",
     "ai2_strength": "Strong"
   },
-  "Fair (Light vs Light)": {
-    "total_games": 30,
-    "p1_wins": 18,
-    "p2_wins": 9,
-    "draws": 3,
-    "p1_win_rate": 60.0,
-    "p2_win_rate": 30.0,
-    "draw_rate": 10.0,
-    "avg_moves": 122.46666666666668,
-    "avg_time_s": 678.3300333333333,
+  "StandardMixed (Strong vs Strong)": {
+    "total_games": 50,
+    "p1_wins": 24,
+    "p2_wins": 26,
+    "draws": 0,
+    "p1_win_rate": 48.0,
+    "p2_win_rate": 52.0,
+    "draw_rate": 0.0,
+    "avg_moves": 93.75999999999998,
+    "avg_time_s": 1212.3852399999996,
     "source_files": [
-      "selfplay_results_20260105_232922.json"
+      "selfplay_results_20260107_004732.json"
     ],
-    "board_setup": "Fair",
-    "ai1_strength": "Light",
-    "ai2_strength": "Light"
+    "board_setup": "StandardMixed",
+    "ai1_strength": "Strong",
+    "ai2_strength": "Strong"
   }
 }

@@ -15,8 +15,28 @@
 //! - Hand pieces are valued slightly higher (1.2x) to encourage efficient reuse/drops.
 
 use super::config::AIConfig;
+use super::evaluator::Evaluator;
 use crate::core::{Board, PieceKind, PlayerId};
 use crate::player::ai::pst::get_pst_value;
+
+/// Handcrafted evaluation function (rule-based)
+pub struct HandcraftedEvaluator;
+
+impl Evaluator for HandcraftedEvaluator {
+    fn evaluate(&mut self, board: &Board) -> i32 {
+        evaluate(board)
+    }
+
+    fn name(&self) -> &str {
+        "Handcrafted"
+    }
+}
+
+impl HandcraftedEvaluator {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
 // Material Values (in centipawns, CP)
 // Adjusted for Mixed Shogi/Chess environment
@@ -84,6 +104,8 @@ pub fn evaluate(board: &Board) -> i32 {
     // 1. Material & PST (Piece-Square Tables)
     let mut p1_king = None;
     let mut p2_king = None;
+    let mut p1_pawn_cols = vec![0; board.width];
+    let mut p2_pawn_cols = vec![0; board.width];
 
     // Board stores pieces in a HashMap<Position, Piece>.
     // Iteration order doesn't matter as addition is commutative.
@@ -99,11 +121,55 @@ pub fn evaluate(board: &Board) -> i32 {
             if matches!(piece.kind, PieceKind::S_King | PieceKind::C_King) {
                 p1_king = Some(pos);
             }
+            if matches!(piece.kind, PieceKind::S_Pawn | PieceKind::C_Pawn) {
+                p1_pawn_cols[pos.x] += 1;
+            }
         } else {
             // Player2's pieces count negatively against Player1
             score = score.saturating_sub(mat + pst);
             if matches!(piece.kind, PieceKind::S_King | PieceKind::C_King) {
                 p2_king = Some(pos);
+            }
+            if matches!(piece.kind, PieceKind::S_Pawn | PieceKind::C_Pawn) {
+                p2_pawn_cols[pos.x] += 1;
+            }
+        }
+    }
+
+    // Pawn Structure (Doubled & Isolated)
+    const PENALTY_DOUBLED: i32 = 20;
+    const PENALTY_ISOLATED: i32 = 20;
+
+    for x in 0..board.width {
+        // Player 1
+        if p1_pawn_cols[x] > 1 {
+            score -= PENALTY_DOUBLED * (p1_pawn_cols[x] - 1) as i32;
+        }
+        if p1_pawn_cols[x] > 0 {
+            let left = if x > 0 { p1_pawn_cols[x - 1] } else { 0 };
+            let right = if x < board.width - 1 {
+                p1_pawn_cols[x + 1]
+            } else {
+                0
+            };
+            if left == 0 && right == 0 {
+                score -= PENALTY_ISOLATED;
+            }
+        }
+
+        // Player 2 (Symmetric, subtract from score means adding to their advantage)
+        if p2_pawn_cols[x] > 1 {
+            score += PENALTY_DOUBLED * (p2_pawn_cols[x] - 1) as i32;
+        }
+        if p2_pawn_cols[x] > 0 {
+            let left = if x > 0 { p2_pawn_cols[x - 1] } else { 0 };
+            let right = if x < board.width - 1 {
+                p2_pawn_cols[x + 1]
+            } else {
+                0
+            };
+            if left == 0 && right == 0 {
+                score += PENALTY_ISOLATED;
             }
         }
     }
