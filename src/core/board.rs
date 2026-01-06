@@ -129,3 +129,72 @@ impl Board {
             .map(|(pos, _)| *pos)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_board_manipulation() {
+        let mut board = Board::new(9, 9);
+        let pos = Position { x: 4, y: 4 };
+        let piece = Piece {
+            kind: PieceKind::S_Pawn,
+            owner: PlayerId::Player1,
+            is_shogi: true,
+        };
+
+        // Place & Get
+        board.place_piece(pos, piece);
+        assert_eq!(board.get_piece(pos).unwrap().kind, PieceKind::S_Pawn);
+
+        // Remove
+        let removed = board.remove_piece(pos);
+        assert!(removed.is_some());
+        assert!(board.get_piece(pos).is_none());
+    }
+
+    #[test]
+    fn test_hand_manipulation() {
+        let mut board = Board::new(9, 9);
+        let p1 = PlayerId::Player1;
+        let kind = PieceKind::S_Gold;
+
+        // Add
+        board.add_to_hand(p1, kind);
+        assert_eq!(*board.hand.get(&p1).unwrap().get(&kind).unwrap(), 1);
+
+        board.add_to_hand(p1, kind);
+        assert_eq!(*board.hand.get(&p1).unwrap().get(&kind).unwrap(), 2);
+
+        // Remove
+        assert!(board.remove_from_hand(p1, kind));
+        assert_eq!(*board.hand.get(&p1).unwrap().get(&kind).unwrap(), 1);
+
+        // Remove last
+        assert!(board.remove_from_hand(p1, kind));
+        assert!(!board.hand.get(&p1).unwrap().contains_key(&kind)); // Should be removed or 0
+
+        // Remove from empty
+        assert!(!board.remove_from_hand(p1, kind));
+    }
+
+    #[test]
+    fn test_find_king() {
+        let mut board = Board::new(9, 9);
+        let p1 = PlayerId::Player1;
+        let pos = Position { x: 4, y: 8 };
+
+        board.place_piece(
+            pos,
+            Piece {
+                kind: PieceKind::S_King,
+                owner: p1,
+                is_shogi: true,
+            },
+        );
+
+        assert_eq!(board.find_king(p1), Some(pos));
+        assert_eq!(board.find_king(PlayerId::Player2), None);
+    }
+}

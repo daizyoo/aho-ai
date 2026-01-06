@@ -123,3 +123,50 @@ pub fn evaluate(board: &Board) -> i32 {
 
     score
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_piece_values() {
+        // Verify relative values
+        assert!(piece_val(PieceKind::S_Rook) > piece_val(PieceKind::S_Gold));
+        assert!(piece_val(PieceKind::S_Gold) > piece_val(PieceKind::S_Pawn));
+        assert!(piece_val(PieceKind::C_Queen) > piece_val(PieceKind::S_Rook));
+    }
+
+    #[test]
+    fn test_eval_material_balance() {
+        let mut board = Board::new(9, 9);
+        // Empty board score should be 0
+        assert_eq!(evaluate(&board), 0);
+
+        // Add P1 Pawn
+        board.place_piece(
+            crate::core::Position { x: 0, y: 0 },
+            crate::core::Piece {
+                kind: PieceKind::S_Pawn,
+                owner: PlayerId::Player1,
+                is_shogi: true,
+            },
+        );
+        let score_p1 = evaluate(&board);
+        assert!(score_p1 > 0);
+
+        // Add P2 Pawn (offsetting)
+        // Note: PST values differ by position, so it might not be exactly 0
+        // unless positions are symmetric relative to PST.
+        // Let's just check sign.
+        board.place_piece(
+            crate::core::Position { x: 0, y: 8 },
+            crate::core::Piece {
+                kind: PieceKind::S_Pawn,
+                owner: PlayerId::Player2,
+                is_shogi: true,
+            },
+        );
+        // Should be roughly balanced
+        let score_balanced = evaluate(&board);
+        assert!(score_balanced.abs() < 200); // PST diff is small
+    }
+}
