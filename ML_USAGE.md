@@ -52,7 +52,7 @@ python scripts/ml/prepare_dataset.py --boards all
 ## ステップ 3: モデルの訓練
 
 ```bash
-python scripts/ml/train.py --epochs 20
+python scripts/ml/train.py --epochs 20 --version 0.1.0
 ```
 
 以下が生成されます:
@@ -105,6 +105,7 @@ cargo run --release --features ml
 ```
 [AI Configuration]
 Evaluator: NeuralNetwork
+[ML] Loaded model: models/shogi_model.onnx (v0.1.0)
 ```
 
 ## マルチモデルサポート

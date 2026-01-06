@@ -1,15 +1,11 @@
-"""
-Training script for Shogi AI
-
-Trains the neural network using prepared dataset.
-"""
-
+import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import h5py
 import numpy as np
+import onnx
 from model import ShogiNet
 
 
@@ -60,7 +56,7 @@ def train_epoch(model, dataloader, criterion_policy, criterion_value, optimizer,
     return total_loss / len(dataloader)
 
 
-def train(data_path, model_path, epochs=10, batch_size=64, lr=0.001):
+def train(data_path, model_path, epochs=10, batch_size=64, lr=0.001, version='0.1.0'):
     """Main training loop"""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
@@ -98,11 +94,30 @@ def train(data_path, model_path, epochs=10, batch_size=64, lr=0.001):
     )
     print(f"ONNX model exported to {onnx_path}")
 
+    # Add version to ONNX metadata
+    print(f"Adding version {version} to ONNX metadata...")
+    onnx_model = onnx.load(onnx_path)
+    meta = onnx_model.metadata_props.add()
+    meta.key = "version"
+    meta.value = version
+    onnx.save(onnx_model, onnx_path)
+    print("Metadata updated successfully.")
+
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Train Shogi AI model')
+    parser.add_argument('--data', type=str, default='models/training_data.h5', help='Path to h5 dataset')
+    parser.add_argument('--output', type=str, default='models/shogi_model.pt', help='Output model path (.pt)')
+    parser.add_argument('--epochs', type=int, default=10, help='Number of epochs')
+    parser.add_argument('--batch-size', type=int, default=64, help='Batch size')
+    parser.add_argument('--version', type=str, default='0.1.0', help='Model version')
+    
+    args = parser.parse_args()
+    
     train(
-        data_path='models/training_data.h5',
-        model_path='models/shogi_model.pt',
-        epochs=10,
-        batch_size=64
+        data_path=args.data,
+        model_path=args.output,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        version=args.version
     )

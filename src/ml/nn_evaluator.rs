@@ -21,6 +21,16 @@ impl NNEvaluator {
     /// Load ONNX model from file
     pub fn load(model_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let session = Session::builder()?.commit_from_file(model_path)?;
+
+        // Try to read version metadata
+        if let Ok(metadata) = session.metadata() {
+            if let Ok(Some(version)) = metadata.custom("version") {
+                eprintln!("[ML] Loaded model: {} (v{})\r", model_path, version);
+            } else {
+                eprintln!("[ML] Loaded model: {} (no version)\r", model_path);
+            }
+        }
+
         Ok(Self {
             session: Mutex::new(session),
         })

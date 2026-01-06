@@ -1,10 +1,8 @@
-//! Model Registry for managing multiple ML models
-//!
-//! This module provides a simple registry for tracking and loading different
-//! ML model types and instances.
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+
+#[cfg(feature = "ml")]
+use ort::session::Session;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ModelType {
@@ -75,11 +73,29 @@ impl ModelRegistry {
                         .unwrap_or("unknown")
                         .to_string();
 
+                    let version = {
+                        let mut v = None;
+                        #[cfg(feature = "ml")]
+                        {
+                            // Try to load session to read metadata
+                            if let Ok(session) =
+                                Session::builder().and_then(|b| b.commit_from_file(&path))
+                            {
+                                if let Ok(metadata) = session.metadata() {
+                                    if let Ok(Some(version)) = metadata.custom("version") {
+                                        v = Some(version);
+                                    }
+                                }
+                            }
+                        }
+                        v
+                    };
+
                     let metadata = ModelMetadata {
                         name: name.clone(),
                         model_type,
                         path: path.clone(),
-                        version: None,
+                        version,
                         created_at: None,
                     };
 
