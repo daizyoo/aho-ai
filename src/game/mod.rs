@@ -43,7 +43,12 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(board: Board) -> Self {
+    pub fn new(mut board: Board) -> Self {
+        // Initialize hash and history
+        let hash = crate::logic::ZobristHasher::compute_hash(&board, PlayerId::Player1);
+        board.zobrist_hash = hash;
+        board.history = vec![hash];
+
         Game {
             board,
             current_player: PlayerId::Player1,
@@ -56,7 +61,12 @@ impl Game {
         }
     }
 
-    pub fn with_setup(board: Board, board_setup: String) -> Self {
+    pub fn with_setup(mut board: Board, board_setup: String) -> Self {
+        // Initialize hash and history
+        let hash = crate::logic::ZobristHasher::compute_hash(&board, PlayerId::Player1);
+        board.zobrist_hash = hash;
+        board.history = vec![hash];
+
         Game {
             board,
             current_player: PlayerId::Player1,
@@ -108,6 +118,23 @@ impl Game {
                 self.current_player
             ));
             crate::display::render_board(&self.board, &state);
+
+            // 千日手判定
+            let hash_count = self
+                .board
+                .history
+                .iter()
+                .filter(|&&h| h == self.board.zobrist_hash)
+                .count();
+            if hash_count >= 4 {
+                let state = crate::display::DisplayState {
+                    status_msg: Some("Sennichite (Repetition) - Draw!".to_string()),
+                    ..Default::default()
+                };
+                crate::display::render_board(&self.board, &state);
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                break;
+            }
 
             // 合法手生成
             let moves = legal_moves(&self.board, self.current_player);

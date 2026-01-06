@@ -1,4 +1,6 @@
 use crate::core::{Board, Move, MoveStep, Piece, PieceKind, PlayerId, Position};
+pub mod zobrist;
+pub use zobrist::ZobristHasher;
 
 /// 合法手生成 (自殺手を排除)
 pub fn legal_moves(board: &Board, player: PlayerId) -> Vec<Move> {
@@ -276,6 +278,13 @@ pub fn apply_move(board: &Board, mv: &Move, player: PlayerId) -> Board {
             }
         }
     }
+
+    // Update Zobrist Hash
+    let next_player = player.opponent();
+    next.zobrist_hash = ZobristHasher::compute_hash(&next, next_player);
+
+    // Update History
+    next.history.push(next.zobrist_hash);
 
     next
 }

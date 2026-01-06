@@ -1,7 +1,7 @@
 use super::eval;
 use super::tt::{Bound, TranspositionTable};
-use super::zobrist::ZobristHasher;
 use crate::core::{Board, Move, PlayerId};
+use crate::logic::ZobristHasher;
 use crate::logic::{apply_move, is_in_check, legal_moves};
 use crate::player::PlayerController;
 
@@ -109,6 +109,17 @@ impl AlphaBetaAI {
 
         let alpha_orig = alpha;
         let hash = ZobristHasher::compute_hash(board, current_player);
+
+        // Repetition Check (Sennichite)
+        // If this position has appeared 3 times before (total 4), it's a draw.
+        // board.history includes the current hash if this is a leaf/node we just moved to?
+        // Wait, apply_move adds hash to history. So board.history ALREADY contains 'hash'.
+        // So we count how many times 'hash' is in 'board.history'.
+        // If count >= 4, return 0.
+        let rep_count = board.history.iter().filter(|&&h| h == hash).count();
+        if rep_count >= 4 {
+            return 0; // Draw score
+        }
 
         // TT Lookup
         if let Some((entry, _)) = self.tt.borrow().get(hash) {

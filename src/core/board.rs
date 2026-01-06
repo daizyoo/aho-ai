@@ -21,6 +21,12 @@ pub struct Board {
     #[serde(with = "crate::core::serialization")]
     pub player_configs: HashMap<PlayerId, PlayerConfig>,
     pub last_move: Option<crate::core::Move>,
+    /// Zobrist Hash (現在の盤面ハッシュ)
+    #[serde(skip)]
+    pub zobrist_hash: u64,
+    /// 局面履歴（ハッシュ値のリスト）
+    #[serde(skip)]
+    pub history: Vec<u64>,
 }
 
 impl Board {
@@ -32,6 +38,8 @@ impl Board {
             hand: HashMap::new(),
             player_configs: HashMap::new(),
             last_move: None,
+            zobrist_hash: 0,
+            history: Vec::new(),
         }
     }
 

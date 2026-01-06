@@ -5,7 +5,6 @@ pub mod minimax;
 pub mod pst;
 pub mod tt;
 pub mod weighted;
-pub mod zobrist;
 
 pub use alpha_beta::{AIStrength, AlphaBetaAI};
 pub use minimax::MinimaxAI;

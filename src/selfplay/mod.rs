@@ -136,7 +136,7 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
     // Configure thread pool for optimal performance
     // Using 6 threads on 8-core system leaves headroom for OS and background tasks
     rayon::ThreadPoolBuilder::new()
-        .num_threads(6)
+        .num_threads(4)
         .build_global()
         .ok(); // Ignore error if already initialized
 
@@ -303,6 +303,17 @@ fn run_game_silent(
             PlayerId::Player1 => p1,
             PlayerId::Player2 => p2,
         };
+
+        // Sennichite Check
+        let hash_count = game
+            .board
+            .history
+            .iter()
+            .filter(|&&h| h == game.board.zobrist_hash)
+            .count();
+        if hash_count >= 4 {
+            return Ok((None, move_count, thinking_data.clone())); // Draw by Sennichite
+        }
 
         let legal_moves = crate::logic::legal_moves(&game.board, current_player);
 
