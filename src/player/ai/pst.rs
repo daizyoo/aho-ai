@@ -100,9 +100,16 @@ const MG_KING: [i32; 81] = [
 
 // Generic fallback for others (Bishop, Rook, Queen, etc) - Centralize
 const MG_GENERIC: [i32; 81] = [
-    -5, -5, -5, -5, -5, -5, -5, -5, -5, -5, 0, 0, 0, 0, 0, 0, 0, -5, -5, 0, 5, 5, 5, 5, 5, 0, -5,
-    -5, 0, 5, 10, 10, 10, 5, 0, -5, -5, 0, 5, 10, 10, 10, 5, 0, -5, -5, 0, 5, 5, 5, 5, 5, 0, -5,
-    -5, 0, 0, 0, 0, 0, 0, 0, -5, -5, 0, 0, 0, 0, 0, 0, 0, -5, -5, -5, -5, -5, -5, -5, -5, -5, -5,
+    // Encouraging invasion (Rank 0-2) and Centralization
+    10, 10, 10, 10, 10, 10, 10, 10, 10, // Rank 0 (Deep enemy territory)
+    5, 5, 5, 5, 10, 5, 5, 5, 5, // Rank 1
+    0, 0, 0, 5, 5, 5, 0, 0, 0, // Rank 2
+    -5, 0, 5, 10, 10, 10, 5, 0, -5, // Rank 3
+    -5, 0, 5, 10, 10, 10, 5, 0, -5, // Rank 4
+    -5, 0, 0, 5, 5, 5, 0, 0, -5, // Rank 5
+    -5, -5, 0, 0, 0, 0, 0, -5, -5, // Rank 6
+    -5, -5, -5, -5, -5, -5, -5, -5, -5, // Rank 7
+    -10, -10, -10, -10, -10, -10, -10, -10, -10, // Rank 8 (Back rank, bad for active pieces)
 ];
 
 pub fn get_pst_value(kind: PieceKind, idx: usize, player: PlayerId) -> i32 {
