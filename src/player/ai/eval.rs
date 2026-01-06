@@ -82,6 +82,9 @@ pub fn evaluate(board: &Board) -> i32 {
     let mut score = 0;
 
     // 1. Material & PST (Piece-Square Tables)
+    let mut p1_king = None;
+    let mut p2_king = None;
+
     // Board stores pieces in a HashMap<Position, Piece>.
     // Iteration order doesn't matter as addition is commutative.
     for (&pos, piece) in &board.pieces {
@@ -93,10 +96,25 @@ pub fn evaluate(board: &Board) -> i32 {
 
         if piece.owner == PlayerId::Player1 {
             score += mat + pst;
+            if matches!(piece.kind, PieceKind::S_King | PieceKind::C_King) {
+                p1_king = Some(pos);
+            }
         } else {
             // Player2's pieces count negatively against Player1
             score = score.saturating_sub(mat + pst);
+            if matches!(piece.kind, PieceKind::S_King | PieceKind::C_King) {
+                p2_king = Some(pos);
+            }
         }
+    }
+
+    // 2. King Safety Bonus (Castle)
+    // Add bonus for friendly pieces around the king.
+    if let Some(kpos) = p1_king {
+        score += calc_king_safety(board, kpos, PlayerId::Player1);
+    }
+    if let Some(kpos) = p2_king {
+        score -= calc_king_safety(board, kpos, PlayerId::Player2);
     }
 
     // 2. Hand Material
@@ -125,6 +143,55 @@ pub fn evaluate(board: &Board) -> i32 {
 
     score
 }
+
+// Helper for King Safety
+// Checks 3x3 area around king for friendly defenders
+fn calc_king_safety(board: &Board, kpos: crate::core::Position, owner: PlayerId) -> i32 {
+    let mut safety = 0;
+    // Offsets for neighbors
+    let offsets = [
+        (-1, -1),
+        (0, -1),
+        (1, -1),
+        (-1, 0),
+        (1, 0),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+    ];
+
+    for (dx, dy) in offsets {
+        let nx = kpos.x as i32 + dx;
+        let ny = kpos.y as i32 + dy;
+
+        if nx >= 0 && nx < board.width as i32 && ny >= 0 && ny < board.height as i32 {
+            let npos = crate::core::Position {
+                x: nx as usize,
+                y: ny as usize,
+            };
+            if let Some(piece) = board.get_piece(npos) {
+                if piece.owner == owner {
+                    // Bonus for defenders
+                    safety += match piece.kind {
+                        PieceKind::S_Gold
+                        | PieceKind::S_Silver
+                        | PieceKind::S_ProPawn
+                        | PieceKind::S_ProLance
+                        | PieceKind::S_ProKnight
+                        | PieceKind::S_ProSilver
+                        | PieceKind::S_ProBishop
+                        | PieceKind::S_ProRook => 40, // Strong defenders
+                        PieceKind::S_Lance | PieceKind::S_Knight => 20,
+                        PieceKind::S_Pawn | PieceKind::C_Pawn => 15, // Wall
+                        _ => 10,
+                    };
+                }
+            }
+        }
+    }
+    safety
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
