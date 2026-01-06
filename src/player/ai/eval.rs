@@ -22,7 +22,8 @@ use crate::player::ai::pst::get_pst_value;
 // Adjusted for Mixed Shogi/Chess environment
 const VAL_PAWN: i32 = 100;
 const VAL_LANCE: i32 = 300;
-const VAL_KNIGHT: i32 = 400; // Knight is strong in Shogi due to jumping
+const VAL_S_KNIGHT: i32 = 400; // Knight is strong in Shogi due to jumping
+const VAL_C_KNIGHT: i32 = 500; // Chess Knight moves in 8 directions (Silver-class)
 const VAL_SILVER: i32 = 500;
 const VAL_GOLD: i32 = 600;
 const VAL_BISHOP: i32 = 800;
@@ -48,7 +49,8 @@ fn piece_val(k: PieceKind) -> i32 {
     match k {
         PieceKind::S_Pawn | PieceKind::C_Pawn => VAL_PAWN,
         PieceKind::S_Lance => VAL_LANCE,
-        PieceKind::S_Knight | PieceKind::C_Knight => VAL_KNIGHT,
+        PieceKind::S_Knight => VAL_S_KNIGHT,
+        PieceKind::C_Knight => VAL_C_KNIGHT,
         PieceKind::S_Silver => VAL_SILVER,
         PieceKind::S_Gold => VAL_GOLD,
         PieceKind::S_Bishop | PieceKind::C_Bishop => VAL_BISHOP,
