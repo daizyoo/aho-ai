@@ -1,7 +1,13 @@
 use crate::core::{Board, Piece, PieceKind, PlayerConfig, PlayerId, Position};
 
 /// 文字列配列から盤面とプレイヤー設定を初期化する
-pub fn setup_from_strings(setup: &[&str], p1_shogi: bool, p2_shogi: bool) -> Board {
+pub fn setup_from_strings(
+    setup: &[&str],
+    p1_shogi: bool,
+    p2_shogi: bool,
+    p1_use_hand: Option<bool>,
+    p2_use_hand: Option<bool>,
+) -> Board {
     let height = setup.len();
     let width = if height > 0 {
         setup[0].split_whitespace().count()
@@ -10,22 +16,27 @@ pub fn setup_from_strings(setup: &[&str], p1_shogi: bool, p2_shogi: bool) -> Boa
     };
     let mut board = Board::new(width, height);
 
-    board.set_player_config(
-        PlayerId::Player1,
-        if p1_shogi {
-            PlayerConfig::shogi()
-        } else {
-            PlayerConfig::chess()
-        },
-    );
-    board.set_player_config(
-        PlayerId::Player2,
-        if p2_shogi {
-            PlayerConfig::shogi()
-        } else {
-            PlayerConfig::chess()
-        },
-    );
+    let mut p1_config = if p1_shogi {
+        PlayerConfig::shogi()
+    } else {
+        PlayerConfig::chess()
+    };
+    if let Some(use_hand) = p1_use_hand {
+        p1_config.can_drop = use_hand;
+        p1_config.keep_captured = use_hand;
+    }
+    board.set_player_config(PlayerId::Player1, p1_config);
+
+    let mut p2_config = if p2_shogi {
+        PlayerConfig::shogi()
+    } else {
+        PlayerConfig::chess()
+    };
+    if let Some(use_hand) = p2_use_hand {
+        p2_config.can_drop = use_hand;
+        p2_config.keep_captured = use_hand;
+    }
+    board.set_player_config(PlayerId::Player2, p2_config);
 
     for (y, row) in setup.iter().enumerate() {
         for (x, s) in row.split_whitespace().enumerate() {
@@ -151,12 +162,12 @@ pub fn get_chess_setup() -> Vec<&'static str> {
 pub fn get_fair_setup() -> Vec<&'static str> {
     vec![
         "cr cn cb cq ck g s n l", // P2 starting line: Chess Left, King, Shogi Right
-        ". r . . . . . b .",     // P2: Chess Bishop (Col 2), Shogi Rook (Col 8)
+        ". r . . . . . b .",      // P2: Chess Bishop (Col 2), Shogi Rook (Col 8)
         "cp cp cp cp p p p p p",  // P2 pawns: Chess, Shogi
         ". . . . . . . . .",
         ". . . . . . . . .",
         ". . . . . . . . .",
-        "P P P P P CP CP CP CP",  // P1 pawns: Shogi, Chess
+        "P P P P P CP CP CP CP", // P1 pawns: Shogi, Chess
         ". B . . . . . R .",     // P1: Shogi Rook (Col 2), Chess Bishop (Col 8)
         "L N S G K CQ CB CN CR", // P1 starting line: Shogi Left, King, Chess Right
     ]
@@ -166,12 +177,12 @@ pub fn get_reversed_fair_setup() -> Vec<&'static str> {
     vec![
         "l n s g k cq cb cn cr", // P2 starting line: Shogi Left, King, Chess Right
         ". r . . . . . b .",     // P2: Shogi Rook (Col 2), Chess Bishop (Col 8)
-        "p p p p p cp cp cp cp",  // P2 pawns: Shogi, Chess
+        "p p p p p cp cp cp cp", // P2 pawns: Shogi, Chess
         ". . . . . . . . .",
         ". . . . . . . . .",
         ". . . . . . . . .",
         "CP CP CP CP P P P P P",  // P1 pawns: Chess, Shogi
-        ". B . . . . . R .",     // P1: Chess Bishop (Col 2), Shogi Rook (Col 8)
+        ". B . . . . . R .",      // P1: Chess Bishop (Col 2), Shogi Rook (Col 8)
         "CR CN CB CQ CK G S N L", // P1 starting line: Chess Left, King, Shogi Right
     ]
 }

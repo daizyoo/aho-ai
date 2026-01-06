@@ -119,6 +119,38 @@ pub fn select_player_controllers() -> anyhow::Result<(
     })
 }
 
+fn ask_hand_config(player_name: &str) -> anyhow::Result<Option<bool>> {
+    print!(
+        "\r\nEnable held pieces (mochigoma) for {}? (y: Yes, n: No, Enter: Default): ",
+        player_name
+    );
+    use std::io::Write;
+    std::io::stdout().flush()?;
+
+    loop {
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('y') => {
+                        println!("Yes\r");
+                        return Ok(Some(true));
+                    }
+                    KeyCode::Char('n') => {
+                        println!("No\r");
+                        return Ok(Some(false));
+                    }
+                    KeyCode::Enter | KeyCode::Char('d') => {
+                        println!("Default\r");
+                        return Ok(None);
+                    }
+                    KeyCode::Char('q') => return Err(anyhow::anyhow!("Canceled")),
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
 pub fn select_board_setup() -> anyhow::Result<(Board, String)> {
     print!("\r\nSelect board setup:\r\n");
     print!("1. Shogi (P1) vs Chess (P2)\r\n");
@@ -145,12 +177,19 @@ pub fn select_board_setup() -> anyhow::Result<(Board, String)> {
         }
     };
 
+    println!("\r"); // New line after selection
+
+    let p1_hand = ask_hand_config("Player 1")?;
+    let p2_hand = ask_hand_config("Player 2")?;
+
     Ok(match b_choice {
         "1" => (
             crate::core::setup::setup_from_strings(
                 &crate::core::setup::get_standard_mixed_setup(),
                 true,
                 false,
+                p1_hand,
+                p2_hand,
             ),
             "StandardMixed".to_string(),
         ),
@@ -159,6 +198,8 @@ pub fn select_board_setup() -> anyhow::Result<(Board, String)> {
                 &crate::core::setup::get_reversed_mixed_setup(),
                 false,
                 true,
+                p1_hand,
+                p2_hand,
             ),
             "ReversedMixed".to_string(),
         ),
@@ -167,6 +208,8 @@ pub fn select_board_setup() -> anyhow::Result<(Board, String)> {
                 &crate::core::setup::get_shogi_setup(),
                 true,
                 true,
+                p1_hand,
+                p2_hand,
             ),
             "ShogiOnly".to_string(),
         ),
@@ -175,6 +218,8 @@ pub fn select_board_setup() -> anyhow::Result<(Board, String)> {
                 &crate::core::setup::get_chess_setup(),
                 false,
                 false,
+                p1_hand,
+                p2_hand,
             ),
             "ChessOnly".to_string(),
         ),
@@ -183,6 +228,8 @@ pub fn select_board_setup() -> anyhow::Result<(Board, String)> {
                 &crate::core::setup::get_fair_setup(),
                 true,
                 true,
+                p1_hand,
+                p2_hand,
             ),
             "Fair".to_string(),
         ),
@@ -191,6 +238,8 @@ pub fn select_board_setup() -> anyhow::Result<(Board, String)> {
                 &crate::core::setup::get_reversed_fair_setup(),
                 true,
                 true,
+                p1_hand,
+                p2_hand,
             ),
             "ReversedFair".to_string(),
         ),

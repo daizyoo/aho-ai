@@ -48,6 +48,8 @@ async fn handle_new_connection(
             &crate::core::setup::get_standard_mixed_setup(),
             true,
             true,
+            None,
+            None,
         );
 
         // Notify players

@@ -45,32 +45,32 @@ impl ReplayViewer {
         match setup {
             "StandardMixed" => {
                 let map = setup::get_standard_mixed_setup();
-                setup::setup_from_strings(&map, true, false)
+                setup::setup_from_strings(&map, true, false, None, None)
             }
             "ReversedMixed" => {
                 let map = setup::get_reversed_mixed_setup();
-                setup::setup_from_strings(&map, false, true)
+                setup::setup_from_strings(&map, false, true, None, None)
             }
             "ShogiOnly" => {
                 let map = setup::get_shogi_setup();
-                setup::setup_from_strings(&map, true, true)
+                setup::setup_from_strings(&map, true, true, None, None)
             }
             "ChessOnly" => {
                 let map = setup::get_chess_setup();
-                setup::setup_from_strings(&map, true, true)
+                setup::setup_from_strings(&map, false, false, None, None)
             }
             "Fair" => {
                 let map = setup::get_fair_setup();
-                setup::setup_from_strings(&map, true, true)
+                setup::setup_from_strings(&map, true, true, None, None)
             }
             "ReversedFair" => {
                 let map = setup::get_reversed_fair_setup();
-                setup::setup_from_strings(&map, true, true)
+                setup::setup_from_strings(&map, false, false, None, None)
             }
             _ => {
                 // Default to Fair if unknown
                 let map = setup::get_fair_setup();
-                setup::setup_from_strings(&map, true, true)
+                setup::setup_from_strings(&map, true, true, None, None)
             }
         }
     }

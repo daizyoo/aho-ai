@@ -194,7 +194,7 @@ impl AlphaBetaAI {
             if self.strength == AIStrength::Strong && moves_searched > 0 && depth >= 2 {
                 // Determine if this is a tactical move
                 let mut is_capture = false;
-                let mut is_promote_move = false;
+                let mut is_promote_move = None;
                 if let Move::Normal { to, promote, .. } = mv {
                     is_capture = board.get_piece(*to).is_some();
                     is_promote_move = *promote;
@@ -206,7 +206,7 @@ impl AlphaBetaAI {
                 if depth >= 3
                     && moves_searched >= 4
                     && !is_capture
-                    && !is_promote_move
+                    && !is_promote_move.is_some()
                     && !gives_check
                 {
                     reduction = 1;
@@ -284,7 +284,7 @@ impl AlphaBetaAI {
                 if board.get_piece(*to).is_some() {
                     score -= 10000; // Capture bonus
                 }
-                if *promote {
+                if promote.is_some() {
                     score -= 5000; // Promote bonus
                 }
             }

@@ -73,7 +73,7 @@ if __name__ == "__main__":
             print(f"Directory {kifu_dir} not found")
             sys.exit(1)
             
-        kifus = sorted(kifu_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        kifus = sorted(kifu_dir.rglob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
         
         # Filter files with thinking data
         kifus_with_thinking = []

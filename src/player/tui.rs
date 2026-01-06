@@ -160,7 +160,7 @@ impl PlayerController for TuiController {
                                     state.selected = None;
                                     state.highlights.clear();
                                 } else {
-                                    let found_moves: Vec<_> = legal_moves_list
+                                    let found_moves: Vec<Move> = legal_moves_list
                                         .iter()
                                         .filter(|m| match m {
                                             Move::Normal { from: f, to: t, .. } => {
@@ -168,47 +168,109 @@ impl PlayerController for TuiController {
                                             }
                                             _ => false,
                                         })
+                                        .cloned()
                                         .collect();
 
                                     if !found_moves.is_empty() {
                                         if found_moves.len() > 1 {
                                             // 成り選択
                                             render_board(board, &state);
-                                            println!("\nPromote? [y] Yes / [n] No");
-                                            loop {
-                                                if let Event::Key(KeyEvent {
-                                                    code: KeyCode::Char(c),
-                                                    ..
-                                                }) = event::read().unwrap()
+
+                                            // Check if we have both promote=Some and promote=None
+                                            let has_non_promote = found_moves.iter().any(|m| {
+                                                matches!(m, Move::Normal { promote: None, .. })
+                                            });
+
+                                            // Create a list of (PromotedKind, Move)
+                                            let promote_options: Vec<_> = found_moves
+                                                .iter()
+                                                .filter_map(|m| {
+                                                    if let Move::Normal {
+                                                        promote: Some(k), ..
+                                                    } = m
+                                                    {
+                                                        Some((k, m.clone()))
+                                                    } else {
+                                                        None
+                                                    }
+                                                })
+                                                .collect();
+
+                                            if !promote_options.is_empty()
+                                                && has_non_promote
+                                                && promote_options.len() == 1
+                                            {
+                                                // Shogi-style simple question
+                                                println!("\nPromote? [y] Yes / [n] No");
+                                                loop {
+                                                    if let Event::Key(KeyEvent {
+                                                        code: KeyCode::Char(c),
+                                                        ..
+                                                    }) = event::read().unwrap()
+                                                    {
+                                                        if c == 'y' {
+                                                            return Some(
+                                                                promote_options[0].1.clone(),
+                                                            );
+                                                        } else if c == 'n' {
+                                                            return found_moves.into_iter().find(
+                                                                |m| {
+                                                                    matches!(
+                                                                        m,
+                                                                        Move::Normal {
+                                                                            promote: None,
+                                                                            ..
+                                                                        }
+                                                                    )
+                                                                },
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                // Chess-style: Multiple promotion options OR mandatory choice
+                                                println!("\nSelect promotion:");
+                                                for (i, (k, _)) in
+                                                    promote_options.iter().enumerate()
                                                 {
-                                                    if c == 'y' {
-                                                        return found_moves
-                                                            .iter()
-                                                            .find(|m| {
-                                                                matches!(
-                                                                    m,
-                                                                    Move::Normal {
-                                                                        promote: true,
-                                                                        ..
-                                                                    }
-                                                                )
-                                                            })
-                                                            .cloned()
-                                                            .cloned();
-                                                    } else if c == 'n' {
-                                                        return found_moves
-                                                            .iter()
-                                                            .find(|m| {
-                                                                matches!(
-                                                                    m,
-                                                                    Move::Normal {
-                                                                        promote: false,
-                                                                        ..
-                                                                    }
-                                                                )
-                                                            })
-                                                            .cloned()
-                                                            .cloned();
+                                                    println!("[{}] Promote to {:?}", i + 1, k);
+                                                }
+                                                if has_non_promote {
+                                                    println!("[0] Don't promote");
+                                                }
+
+                                                loop {
+                                                    if let Event::Key(KeyEvent {
+                                                        code: KeyCode::Char(c),
+                                                        ..
+                                                    }) = event::read().unwrap()
+                                                    {
+                                                        if let Some(digit) = c.to_digit(10) {
+                                                            if digit == 0 && has_non_promote {
+                                                                return found_moves
+                                                                    .into_iter()
+                                                                    .find(|m| {
+                                                                        matches!(
+                                                                            m,
+                                                                            Move::Normal {
+                                                                                promote: None,
+                                                                                ..
+                                                                            }
+                                                                        )
+                                                                    });
+                                                            }
+                                                            if digit > 0
+                                                                && (digit as usize)
+                                                                    <= promote_options.len()
+                                                            {
+                                                                return Some(
+                                                                    promote_options
+                                                                        [digit as usize - 1]
+                                                                        .1
+                                                                        .clone(),
+                                                                );
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }

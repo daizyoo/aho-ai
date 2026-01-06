@@ -37,27 +37,27 @@ impl BoardSetupType {
         match self {
             BoardSetupType::StandardMixed => {
                 let map = crate::core::setup::get_standard_mixed_setup();
-                crate::core::setup::setup_from_strings(&map, true, false)
+                crate::core::setup::setup_from_strings(&map, true, false, None, None)
             }
             BoardSetupType::ReversedMixed => {
                 let map = crate::core::setup::get_reversed_mixed_setup();
-                crate::core::setup::setup_from_strings(&map, false, true)
+                crate::core::setup::setup_from_strings(&map, false, true, None, None)
             }
             BoardSetupType::ShogiOnly => {
                 let map = crate::core::setup::get_shogi_setup();
-                crate::core::setup::setup_from_strings(&map, true, true)
+                crate::core::setup::setup_from_strings(&map, true, true, None, None)
             }
             BoardSetupType::ChessOnly => {
                 let map = crate::core::setup::get_chess_setup();
-                crate::core::setup::setup_from_strings(&map, false, false)
+                crate::core::setup::setup_from_strings(&map, false, false, None, None)
             }
             BoardSetupType::Fair => {
                 let map = crate::core::setup::get_fair_setup();
-                crate::core::setup::setup_from_strings(&map, true, true)
+                crate::core::setup::setup_from_strings(&map, true, true, None, None)
             }
             BoardSetupType::ReversedFair => {
                 let map = crate::core::setup::get_reversed_fair_setup();
-                crate::core::setup::setup_from_strings(&map, false, false)
+                crate::core::setup::setup_from_strings(&map, false, false, None, None)
             }
         }
     }
@@ -165,9 +165,16 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
         (1..=config.num_games)
             .into_par_iter()
             .map(|game_num| {
+                // Update progress (Running)
+                {
+                    let mut status = game_status.lock().unwrap();
+                    status[game_num - 1] = Some(false);
+                    display_progress(&status, config.num_games);
+                }
+
                 let result = run_single_game(game_num, &config, true); // silent mode
 
-                // Update progress
+                // Update progress (Completed)
                 {
                     let mut status = game_status.lock().unwrap();
                     status[game_num - 1] = Some(true);

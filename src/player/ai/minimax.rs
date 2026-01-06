@@ -28,7 +28,7 @@ impl MinimaxAI {
                         s += 100;
                     }
                     // 成る手を優先
-                    if *promote {
+                    if promote.is_some() {
                         s += 50;
                     }
                     -s // 降順ソートのためマイナス

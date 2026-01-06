@@ -3,13 +3,12 @@ use super::types::Position;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// 手の種類
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Move {
     Normal {
         from: Position,
         to: Position,
-        promote: bool,
+        promote: Option<PieceKind>,
     },
     Drop {
         kind: PieceKind,
@@ -21,8 +20,8 @@ impl fmt::Display for Move {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Move::Normal { from, to, promote } => {
-                if *promote {
-                    write!(f, "{} -> {} (promote)", from, to)
+                if let Some(p) = promote {
+                    write!(f, "{} -> {} (promote to {:?})", from, to, p)
                 } else {
                     write!(f, "{} -> {}", from, to)
                 }

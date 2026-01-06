@@ -139,41 +139,56 @@ fn add_normal_moves(
     piece: &Piece,
     can_promote: bool,
 ) {
-    if can_promote && piece.promotable_kind().is_some() {
-        let is_promotion_zone = if piece.owner == PlayerId::Player1 {
-            to.y <= 2
-        } else {
-            to.y >= 6
-        };
-        let from_promotion_zone = if piece.owner == PlayerId::Player1 {
-            from.y <= 2
-        } else {
-            from.y >= 6
-        };
+    if can_promote {
+        let promoted_kind = piece.promotable_kind();
+        if let Some(p_kind) = promoted_kind {
+            let is_promotion_zone = if piece.owner == PlayerId::Player1 {
+                to.y <= 2
+            } else {
+                to.y >= 6
+            };
+            let from_promotion_zone = if piece.owner == PlayerId::Player1 {
+                from.y <= 2
+            } else {
+                from.y >= 6
+            };
 
-        if is_promotion_zone || from_promotion_zone {
-            moves.push(Move::Normal {
-                from,
-                to,
-                promote: true,
-            });
-            let must_promote = matches!(piece.kind, PieceKind::S_Pawn | PieceKind::S_Lance)
-                && ((piece.owner == PlayerId::Player1 && to.y == 0)
-                    || (piece.owner == PlayerId::Player2 && to.y == 8));
-            if !must_promote {
+            if is_promotion_zone || from_promotion_zone {
                 moves.push(Move::Normal {
                     from,
                     to,
-                    promote: false,
+                    promote: Some(p_kind),
                 });
+
+                // 強制成りの判定 (Pawn, Lance, Knight)
+                // Knight (Keima) cannot move if at row 0 or 1 (for P1)
+                let must_promote = match piece.kind {
+                    PieceKind::S_Pawn | PieceKind::S_Lance => {
+                        (piece.owner == PlayerId::Player1 && to.y == 0)
+                            || (piece.owner == PlayerId::Player2 && to.y == 8)
+                    }
+                    PieceKind::S_Knight => {
+                        (piece.owner == PlayerId::Player1 && to.y <= 1)
+                            || (piece.owner == PlayerId::Player2 && to.y >= 7)
+                    }
+                    _ => false,
+                };
+
+                if !must_promote {
+                    moves.push(Move::Normal {
+                        from,
+                        to,
+                        promote: None,
+                    });
+                }
+                return;
             }
-            return;
         }
     }
     moves.push(Move::Normal {
         from,
         to,
-        promote: false,
+        promote: None,
     });
 }
 
@@ -195,17 +210,42 @@ fn get_chess_pawn_moves(board: &Board, from: Position, piece: &Piece) -> Vec<Mov
         7
     };
 
+    let push_move = |moves: &mut Vec<Move>, to: Position, is_promo: bool| {
+        if is_promo {
+            // Chess promotion: Queen, Rook, Bishop, Knight
+            for k in [
+                PieceKind::C_Queen,
+                PieceKind::C_Rook,
+                PieceKind::C_Bishop,
+                PieceKind::C_Knight,
+            ] {
+                moves.push(Move::Normal {
+                    from,
+                    to,
+                    promote: Some(k),
+                });
+            }
+        } else {
+            moves.push(Move::Normal {
+                from,
+                to,
+                promote: None,
+            });
+        }
+    };
+
     if let Some(to) = offset_pos(from, 0, forward, board) {
         if board.get_piece(to).is_none() {
-            let promote = to.y == promo_y;
-            moves.push(Move::Normal { from, to, promote });
+            let is_promo = to.y == promo_y;
+            push_move(&mut moves, to, is_promo);
+
             if from.y == start_y {
                 if let Some(to2) = offset_pos(from, 0, forward * 2, board) {
                     if board.get_piece(to2).is_none() {
                         moves.push(Move::Normal {
                             from,
                             to: to2,
-                            promote: false,
+                            promote: None,
                         });
                     }
                 }
@@ -217,8 +257,8 @@ fn get_chess_pawn_moves(board: &Board, from: Position, piece: &Piece) -> Vec<Mov
         if let Some(to) = offset_pos(from, dx, forward, board) {
             if let Some(target) = board.get_piece(to) {
                 if target.owner != piece.owner {
-                    let promote = to.y == promo_y;
-                    moves.push(Move::Normal { from, to, promote });
+                    let is_promo = to.y == promo_y;
+                    push_move(&mut moves, to, is_promo);
                 }
             }
         }
@@ -263,10 +303,8 @@ pub fn apply_move(board: &Board, mv: &Move, player: PlayerId) -> Board {
                     }
                 }
 
-                if *promote {
-                    if let Some(kind) = piece.promotable_kind() {
-                        piece.kind = kind;
-                    }
+                if let Some(kind) = promote {
+                    piece.kind = *kind;
                 }
 
                 next.place_piece(*to, piece);

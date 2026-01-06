@@ -2,6 +2,8 @@ mod core;
 
 mod game;
 mod logic;
+#[cfg(test)]
+mod logic_tests;
 mod network;
 mod player;
 mod selfplay;

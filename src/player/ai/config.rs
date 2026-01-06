@@ -60,7 +60,7 @@ impl Default for AIConfig {
         AIConfig {
             version: "1.0".to_string(),
             evaluation: EvaluationConfig {
-                hand_piece_bonus_multiplier: 1.2,
+                hand_piece_bonus_multiplier: 1.1,
                 material_values,
                 pst_enabled: true,
             },
