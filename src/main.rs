@@ -1,5 +1,5 @@
 mod core;
-mod display;
+
 mod game;
 mod logic;
 mod network;

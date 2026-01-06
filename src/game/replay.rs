@@ -1,6 +1,6 @@
 use crate::core::{Board, Move, PlayerId};
-use crate::display::{render_board, DisplayState};
 use crate::logic::apply_move;
+use crate::ui::display::{render_board, DisplayState};
 use crossterm::event::{self, Event, KeyCode};
 use crossterm::{execute, terminal};
 use std::io;

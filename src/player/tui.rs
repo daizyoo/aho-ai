@@ -1,6 +1,6 @@
 use crate::core::{Board, Move, PlayerId, Position};
-use crate::display::{render_board, DisplayState};
 use crate::player::PlayerController;
+use crate::ui::display::{render_board, DisplayState};
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use std::cell::RefCell;
 use std::time::Duration;

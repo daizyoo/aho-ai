@@ -93,7 +93,7 @@ impl Game {
             }
 
             // 現状をまず描画 (リモートプレイヤーも待機画面が見えるように)
-            let mut state = crate::display::DisplayState::new();
+            let mut state = crate::ui::display::DisplayState::new();
             state.perspective = match self.perspective_mode {
                 PerspectiveMode::Fixed(p) => p,
                 PerspectiveMode::AutoFlip => self.current_player,
@@ -117,7 +117,7 @@ impl Game {
                 },
                 self.current_player
             ));
-            crate::display::render_board(&self.board, &state);
+            crate::ui::display::render_board(&self.board, &state);
 
             // 千日手判定
             let hash_count = self
@@ -127,11 +127,11 @@ impl Game {
                 .filter(|&&h| h == self.board.zobrist_hash)
                 .count();
             if hash_count >= 4 {
-                let state = crate::display::DisplayState {
+                let state = crate::ui::display::DisplayState {
                     status_msg: Some("Sennichite (Repetition) - Draw!".to_string()),
                     ..Default::default()
                 };
-                crate::display::render_board(&self.board, &state);
+                crate::ui::display::render_board(&self.board, &state);
                 std::thread::sleep(std::time::Duration::from_secs(5));
                 break;
             }
@@ -140,7 +140,7 @@ impl Game {
             let moves = legal_moves(&self.board, self.current_player);
 
             if moves.is_empty() {
-                let state = crate::display::DisplayState {
+                let state = crate::ui::display::DisplayState {
                     status_msg: Some(
                         if crate::logic::is_checkmate(&self.board, self.current_player) {
                             format!("Checkmate! {:?} wins!", self.current_player.opponent())
@@ -150,7 +150,7 @@ impl Game {
                     ),
                     ..Default::default()
                 };
-                crate::display::render_board(&self.board, &state);
+                crate::ui::display::render_board(&self.board, &state);
                 std::thread::sleep(std::time::Duration::from_secs(10));
                 break;
             }
@@ -170,7 +170,7 @@ impl Game {
                     "AI ({:?}) is thinking{}...",
                     self.current_player, check_msg
                 ));
-                crate::display::render_board(&self.board, &state);
+                crate::ui::display::render_board(&self.board, &state);
 
                 // 思考ウェイト中に終了判定
                 let timeout = std::time::Duration::from_millis(100);
