@@ -20,17 +20,30 @@ use crate::core::{PieceKind, PlayerId};
 //   Rank 8 (Bottom - Home)
 // ]
 
-const MG_PAWN: [i32; 81] = [
-    // Rank 0 (Promote!)
-    15, 15, 15, 15, 15, 15, 15, 15, 15, // Rank 1
-    10, 10, 10, 10, 10, 10, 10, 10, 10, // Rank 2 (Approaching)
+// Shogi Pawn: Promote at Rank 0, 1, 2
+const MG_S_PAWN: [i32; 81] = [
+    15, 15, 15, 15, 15, 15, 15, 15, 15, // Rank 0 (Promote)
+    15, 15, 15, 15, 15, 15, 15, 15, 15, // Rank 1 (Promote)
+    10, 10, 10, 10, 10, 10, 10, 10, 10, // Rank 2 (Promote)
     5, 5, 5, 5, 5, 5, 5, 5, 5, // Rank 3
-    2, 2, 2, 10, 10, 2, 2, 2, 2, // Rank 4 (Center fight)
+    2, 2, 2, 10, 10, 2, 2, 2, 2, // Rank 4
     1, 1, 2, 10, 10, 2, 1, 1, 1, // Rank 5
     0, 0, 0, 5, 5, 0, 0, 0, 0, // Rank 6
     0, 0, 0, -5, -5, 0, 0, 0, 0, // Rank 7
-    0, 0, 0, -5, -5, 0, 0, 0, 0, // Rank 8 (Base)
-    0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, // Rank 8
+];
+
+// Chess Pawn: Promote only at Rank 0
+const MG_C_PAWN: [i32; 81] = [
+    50, 50, 50, 50, 50, 50, 50, 50, 50, // Rank 0 (Queen!)
+    20, 20, 20, 20, 20, 20, 20, 20, 20, // Rank 1 (Close)
+    10, 10, 10, 10, 10, 10, 10, 10, 10, // Rank 2
+    5, 5, 5, 10, 10, 5, 5, 5, 5, // Rank 3
+    2, 2, 5, 10, 10, 5, 2, 2, 2, // Rank 4
+    1, 1, 2, 5, 5, 2, 1, 1, 1, // Rank 5
+    0, 0, 0, 0, 0, 0, 0, 0, 0, // Rank 6
+    0, 0, 0, 0, 0, 0, 0, 0, 0, // Rank 7
+    0, 0, 0, 0, 0, 0, 0, 0, 0, // Rank 8
 ];
 
 const MG_LANCE: [i32; 81] = [
@@ -43,18 +56,30 @@ const MG_LANCE: [i32; 81] = [
     0, 0, 0, 5, 5, 0, 0, 0, 0, // Center file is good
 ];
 
-const MG_KNIGHT: [i32; 81] = [
-    // Rank 0
-    10, 10, 10, 10, 10, 10, 10, 10, 10, // Rank 1
-    10, 10, 10, 10, 10, 10, 10, 10, 10, // Rank 2
-    15, 15, 15, 15, 15, 15, 15, 15, 15, // Good square to jump into
-    // Rank 3
-    5, 5, 10, 10, 10, 10, 10, 5, 5, // Rank 4
-    0, 0, 5, 5, 5, 5, 5, 0, 0, // Rank 5
+// Shogi Knight: Moves forward only
+const MG_S_KNIGHT: [i32; 81] = [
+    5, 5, 5, 5, 5, 5, 5, 5, 5, // Rank 0 (Promote)
+    10, 10, 10, 10, 10, 10, 10, 10, 10, // Rank 1 (Promote)
+    15, 15, 15, 15, 15, 15, 15, 15, 15, // Rank 2 (Ideal jump target)
+    5, 5, 10, 10, 10, 10, 10, 5, 5, // Rank 3
+    0, 0, 5, 5, 5, 5, 5, 0, 0, // Rank 4
+    0, 0, 0, 0, 0, 0, 0, 0, 0, // Rank 5
     0, 0, 0, 0, 0, 0, 0, 0, 0, // Rank 6
-    0, 0, 0, 0, 0, 0, 0, 0, 0, // Rank 7 (Start)
-    0, 5, 0, 0, 0, 0, 0, 5, 0, // Rank 8
-    0, -10, 0, 0, 0, 0, 0, -10, 0, // Stuck at bottom is bad
+    0, 5, 0, 0, 0, 0, 0, 5, 0, // Rank 7
+    0, -10, 0, 0, 0, 0, 0, -10, 0, // Rank 8 (Bad start)
+];
+
+// Chess Knight: Moves everywhere, likes heavy center
+const MG_C_KNIGHT: [i32; 81] = [
+    -5, -5, -5, -5, -5, -5, -5, -5, -5, // Rank 0
+    -5, 0, 0, 5, 5, 5, 0, 0, -5, // Rank 1
+    -5, 5, 10, 15, 15, 15, 10, 5, -5, // Rank 2
+    -5, 5, 15, 20, 20, 20, 15, 5, -5, // Rank 3
+    -5, 5, 15, 20, 20, 20, 15, 5, -5, // Rank 4
+    -5, 5, 10, 15, 15, 15, 10, 5, -5, // Rank 5
+    -5, 0, 0, 5, 5, 5, 0, 0, -5, // Rank 6
+    -5, -5, 0, 0, 0, 0, 0, -5, -5, // Rank 7
+    -10, -5, -5, -5, -5, -5, -5, -5, -10, // Rank 8
 ];
 
 const MG_SILVER: [i32; 81] = [
@@ -125,9 +150,11 @@ pub fn get_pst_value(kind: PieceKind, idx: usize, player: PlayerId) -> i32 {
     // x_p2 = 8 - x_p1. (Mirror board completely)
 
     let table = match kind {
-        PieceKind::S_Pawn | PieceKind::C_Pawn => &MG_PAWN,
+        PieceKind::S_Pawn => &MG_S_PAWN,
+        PieceKind::C_Pawn => &MG_C_PAWN,
         PieceKind::S_Lance => &MG_LANCE,
-        PieceKind::S_Knight | PieceKind::C_Knight => &MG_KNIGHT,
+        PieceKind::S_Knight => &MG_S_KNIGHT,
+        PieceKind::C_Knight => &MG_C_KNIGHT,
         PieceKind::S_Silver => &MG_SILVER,
         PieceKind::S_Gold => &MG_GOLD,
         PieceKind::S_King | PieceKind::C_King => &MG_KING,
