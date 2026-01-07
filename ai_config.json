@@ -13,11 +13,11 @@
             "king": 10000
         },
         "pst_enabled": true,
-        "evaluator_type": "NeuralNetwork",
+        "evaluator_type": "Handcrafted",
         "nn_model_path": "models/ShogiOnly/v0.1.0/model.onnx"
     },
     "search": {
-        "max_depth_light": 2,
-        "max_depth_strong": 4
+        "max_depth_light": 4,
+        "max_depth_strong": 6
     }
 }

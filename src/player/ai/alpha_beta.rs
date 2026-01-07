@@ -30,6 +30,7 @@ pub enum AIStrength {
 }
 
 impl AlphaBetaAI {
+    #[allow(unused)]
     pub fn new(
         player_id: PlayerId,
         name: &str,

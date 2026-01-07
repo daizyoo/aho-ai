@@ -75,8 +75,8 @@ impl Default for AIConfig {
                 nn_model_path: None,
             },
             search: SearchConfig {
-                max_depth_light: 2,
-                max_depth_strong: 4,
+                max_depth_light: 4,
+                max_depth_strong: 6,
             },
         }
     }
