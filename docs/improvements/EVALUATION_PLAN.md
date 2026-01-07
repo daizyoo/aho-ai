@@ -29,7 +29,7 @@ Current evaluation function includes:
 
 ## Proposed Improvements
 
-### Priority 1: Mobility Evaluation (High Impact)
+### 優先度 1: モビリティ評価 (High Impact)
 
 **Problem**: Current eval doesn't consider piece activity. A Bishop trapped in corner = Bishop in center.
 
@@ -69,44 +69,44 @@ fn calculate_mobility(board: &Board, player: PlayerId) -> i32 {
 
 ---
 
-### Priority 2: Game Phase Detection (Medium Impact)
+### 優先度 2: ゲームフェー検出 (Medium Impact)
 
-**Problem**: Opening and endgame use same evaluation logic. King should be safe in opening, active in endgame.
+**Problem**: 序盤 and endgame use same evaluation logic. King should be safe in opening, active in endgame.
 
 **Solution**: Detect game phase by material count
 
 ```rust
 #[derive(Debug, Clone, Copy)]
 enum GamePhase {
-    Opening,   // Material > 8000 (most pieces alive)
-    Midgame,   // Material 4000-8000
-    Endgame,   // Material < 4000 (few pieces left)
+    序盤,   // Material > 8000 (most pieces alive)
+    中盤,   // Material 4000-8000
+    終盤,   // Material < 4000 (few pieces left)
 }
 
 fn detect_game_phase(board: &Board) -> GamePhase {
     let total_material = count_total_material(board);
 
     if total_material > 8000 {
-        GamePhase::Opening
+        GamePhase::序盤
     } else if total_material > 4000 {
-        GamePhase::Midgame
+        GamePhase::中盤
     } else {
-        GamePhase::Endgame
+        GamePhase::終盤
     }
 }
 
 // Adjust evaluation based on phase
 fn phase_adjusted_eval(base_eval: i32, phase: GamePhase, board: &Board) -> i32 {
     match phase {
-        GamePhase::Opening => {
+        GamePhase::序盤 => {
             // Emphasize development, king safety
             base_eval + king_safety_bonus * 2 - undeveloped_piece_penalty
         }
-        GamePhase::Midgame => {
+        GamePhase::中盤 => {
             // Balanced, as is
             base_eval
         }
-        GamePhase::Endgame => {
+        GamePhase::終盤 => {
             // King activity, passed pawns matter more
             base_eval + king_activity_bonus + passed_pawn_bonus
         }
@@ -118,7 +118,7 @@ fn phase_adjusted_eval(base_eval: i32, phase: GamePhase, board: &Board) -> i32 {
 
 ---
 
-### Priority 3: Enhanced King Safety (Medium Impact)
+### 優先度 3: 強化キング安全性 (Medium Impact)
 
 **Problem**: Only counts defenders in 3x3 area. Doesn't consider:
 
@@ -149,8 +149,8 @@ fn enhanced_king_safety(board: &Board, king_pos: Position, owner: PlayerId, phas
 
     // Phase adjustment: Safety less critical in endgame
     match phase {
-        GamePhase::Opening | GamePhase::Midgame => safety,
-        GamePhase::Endgame => safety / 2,  // Reduce weight
+        GamePhase::序盤 | GamePhase::中盤 => safety,
+        GamePhase::終盤 => safety / 2,  // Reduce weight
     }
 }
 ```
@@ -159,7 +159,7 @@ fn enhanced_king_safety(board: &Board, king_pos: Position, owner: PlayerId, phas
 
 ---
 
-### Priority 4: Tactical Patterns (Low-Medium Impact)
+### 優先度 4: Tactical Patterns (Low-Medium Impact)
 
 ** Problem**: No recognition of common tactical motifs
 
@@ -195,7 +195,7 @@ fn detect_tactical_patterns(board: &Board, player: PlayerId) -> i32 {
 
 ---
 
-### Priority 5: Tempo & Development (Low Impact, Opening Only)
+### 優先度 5: Tempo & Development (Low Impact, 序盤 Only)
 
 **Problem**: No incentive to develop pieces in opening
 
@@ -203,7 +203,7 @@ fn detect_tactical_patterns(board: &Board, player: PlayerId) -> i32 {
 
 ```rust
 fn development_score(board: &Board, player: PlayerId, phase: GamePhase) -> i32 {
-    if !matches!(phase, GamePhase::Opening) {
+    if !matches!(phase, GamePhase::序盤) {
         return 0;  // Only relevant in opening
     }
 
@@ -243,7 +243,7 @@ pub fn evaluate(board: &Board) -> i32 {
     let config = AIConfig::get();
     let mut score = 0;
 
-    // === 1. Game Phase Detection ===
+    // === 1. ゲームフェー検出 ===
     let phase = detect_game_phase(board);
 
     // === 2. Material & PST (Existing) ===
@@ -268,7 +268,7 @@ pub fn evaluate(board: &Board) -> i32 {
     let p2_tactical = detect_tactical_patterns(board, PlayerId::Player2);
     score += p1_tactical - p2_tactical;
 
-    // === 8. NEW: Development (Opening only) ===
+    // === 8. NEW: Development (序盤 only) ===
     let p1_dev = development_score(board, PlayerId::Player1, phase);
     let p2_dev = development_score(board, PlayerId::Player2, phase);
     score += p1_dev - p2_dev;
@@ -343,8 +343,8 @@ After initial implementation, tune these weights:
 | Component             | Initial Weight | Tunable Range |
 | --------------------- | -------------- | ------------- |
 | Mobility              | 2 per move     | 1-4           |
-| King Safety (Opening) | 1x             | 0.5x-2x       |
-| King Safety (Endgame) | 0.5x           | 0.25x-1x      |
+| King Safety (序盤) | 1x             | 0.5x-2x       |
+| King Safety (終盤) | 0.5x           | 0.25x-1x      |
 | Passed Pawn           | 50 CP          | 30-100        |
 | Bishop Pair           | 30 CP          | 20-50         |
 | Development Penalty   | -10 CP         | -20 to -5     |
@@ -415,11 +415,11 @@ Use self-play results to iterate.
 
 ## Estimated Impact Summary
 
-| Improvement          | Implementation Effort | Expected Elo Gain |
+| Improvement          | Implementation Effort | 期待Elo上昇 |
 | -------------------- | --------------------- | ----------------- |
 | Mobility             | 2-3 hours             | +100-150          |
 | Game Phase           | 1-2 hours             | +50-100           |
-| Enhanced King Safety | 2-3 hours             | +30-50            |
+| 強化キング安全性 | 2-3 hours             | +30-50            |
 | Tactical Patterns    | 2-4 hours             | +20-40            |
 | Development          | 1 hour                | +10-20            |
 | **Total**            | **8-13 hours**        | **+210-360 Elo**  |
