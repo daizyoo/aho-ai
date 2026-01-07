@@ -121,6 +121,17 @@ impl ReplayViewer {
                 self.kifu.player1_name, self.kifu.player2_name
             );
 
+            // NEW: Show evaluator info if available
+            if !self.kifu.evaluator.is_empty() {
+                print!("Evaluator: {}\r\n", self.kifu.evaluator);
+            }
+            if let Some(ref model_path) = self.kifu.model_path {
+                print!("Model: {}\r\n", model_path);
+            }
+            if let Some(ref version) = self.kifu.model_version {
+                print!("Version: {}\r\n", version);
+            }
+
             // Display winner
             let total_moves = self.kifu.moves.len();
             if total_moves > 0 {

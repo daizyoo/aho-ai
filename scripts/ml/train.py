@@ -6,15 +6,27 @@ from torch.utils.data import Dataset, DataLoader
 import h5py
 import numpy as np
 import onnx
+import time
 from model import ShogiNet
 
 
 class ShogiDataset(Dataset):
     """Dataset loader for HDF5 training data"""
-    def __init__(self, h5_path):
+    def __init__(self, h5_path, use_enhanced_labels=False):
         self.h5_path = h5_path
+        self.use_enhanced_labels = use_enhanced_labels
+        
         with h5py.File(h5_path, 'r') as f:
             self.length = len(f['features'])
+            self.input_size = f['features'].shape[1]
+            
+            # Check if enhanced labels are available
+            self.has_enhanced = 'game_lengths' in f and 'material_diffs' in f
+            
+            if use_enhanced_labels and not self.has_enhanced:
+                print(f"Warning: Enhanced labels requested but not found in {h5_path}")
+                print(f"Available datasets: {list(f.keys())}")
+                self.use_enhanced_labels = False
     
     def __len__(self):
         return self.length
@@ -24,6 +36,13 @@ class ShogiDataset(Dataset):
             features = torch.from_numpy(f['features'][idx])
             move = torch.tensor(f['moves'][idx], dtype=torch.long)
             outcome = torch.tensor(f['outcomes'][idx], dtype=torch.float32)
+            
+            # Load enhanced labels if available and requested
+            if self.use_enhanced_labels and self.has_enhanced:
+                game_length = torch.tensor(f['game_lengths'][idx], dtype=torch.float32)
+                material_diff = torch.tensor(f['material_diffs'][idx], dtype=torch.float32)
+                return features, move, outcome, game_length, material_diff
+            
         return features, move, outcome
 
 
@@ -58,6 +77,7 @@ def train_epoch(model, dataloader, criterion_policy, criterion_value, optimizer,
 
 def train(data_path, model_path, epochs=10, batch_size=64, lr=0.001, version='0.1.0'):
     """Main training loop"""
+    start_time = time.time()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
@@ -67,14 +87,16 @@ def train(data_path, model_path, epochs=10, batch_size=64, lr=0.001, version='0.
     print(f"Loaded {len(dataset)} training examples")
     
     # Initialize model
-    model = ShogiNet().to(device)
+    model = ShogiNet(input_size=dataset.input_size).to(device)
     criterion_policy = nn.CrossEntropyLoss()
     criterion_value = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
     
     # Training loop
+    final_loss = 0.0
     for epoch in range(epochs):
         avg_loss = train_epoch(model, dataloader, criterion_policy, criterion_value, optimizer, device)
+        final_loss = avg_loss
         print(f"Epoch {epoch+1}/{epochs}, Loss: {avg_loss:.4f}")
     
     # Save model
@@ -82,7 +104,7 @@ def train(data_path, model_path, epochs=10, batch_size=64, lr=0.001, version='0.
     print(f"Model saved to {model_path}")
     
     # Export to ONNX
-    dummy_input = torch.randn(1, 2647).to(device)
+    dummy_input = torch.randn(1, dataset.input_size).to(device)
     onnx_path = model_path.replace('.pt', '.onnx')
     torch.onnx.export(
         model,
@@ -94,30 +116,121 @@ def train(data_path, model_path, epochs=10, batch_size=64, lr=0.001, version='0.
     )
     print(f"ONNX model exported to {onnx_path}")
 
-    # Add version to ONNX metadata
-    print(f"Adding version {version} to ONNX metadata...")
-    onnx_model = onnx.load(onnx_path)
-    meta = onnx_model.metadata_props.add()
-    meta.key = "version"
-    meta.value = version
-    onnx.save(onnx_model, onnx_path)
-    print("Metadata updated successfully.")
+    training_time = time.time() - start_time
+    
+    return {
+        'final_loss': final_loss,
+        'training_time': training_time,
+        'num_samples': len(dataset),
+        'input_size': dataset.input_size
+    }
+
+
+def update_readme(output_dir: str, version: str, data_path: str, epochs: int, batch_size: int, 
+                  lr: float, stats: dict):
+    """Update or create README.md with training information"""
+    from datetime import datetime
+    from pathlib import Path
+    
+    readme_path = Path(output_dir) / "README.md"
+    
+    # Read existing content if it exists
+    existing_content = ""
+    if readme_path.exists():
+        with open(readme_path, 'r') as f:
+            existing_content = f.read()
+    
+    # Append training information
+    training_info = f"""
+## Model Training
+- **Trained**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+- **Data Source**: `{data_path}`
+- **Training Samples**: {stats.get('num_samples', 'N/A'):,}
+- **Epochs**: {epochs}
+- **Batch Size**: {batch_size}
+- **Learning Rate**: {lr}
+- **Final Loss**: {stats.get('final_loss', 0.0):.4f}
+- **Training Time**: {stats.get('training_time', 0.0):.1f}s
+- **Architecture**:
+  - Input: {stats.get('input_size', 'Unknown')} features
+  - Hidden: 256 units
+  - ResBlocks: 4
+  - Policy Head: 7290 actions
+  - Value Head: Tanh output [-1, 1]
+
+## Model Files
+- `model.pt` - PyTorch model weights
+- `model.onnx` - ONNX export for Rust inference (with embedded version metadata)
+"""
+    
+    # If README exists, replace or append training section
+    if "## Model Training" in existing_content:
+        # Replace existing training section
+        parts = existing_content.split("## Model Training")
+        updated_content = parts[0] + training_info
+    else:
+        # Append to existing content
+        updated_content = existing_content + training_info
+    
+    with open(readme_path, 'w') as f:
+        f.write(updated_content)
+    
+    print(f"README updated at {readme_path}")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train Shogi AI model')
-    parser.add_argument('--data', type=str, default='models/training_data.h5', help='Path to h5 dataset')
-    parser.add_argument('--output', type=str, default='models/shogi_model.pt', help='Output model path (.pt)')
+    parser.add_argument('--data', type=str, help='Path to h5 dataset (optional, defaults to models/{board_type}/v{version}/training_data.h5)')
+    parser.add_argument('--output', type=str, help='Output model path (optional, overrides version-based path)')
     parser.add_argument('--epochs', type=int, default=10, help='Number of epochs')
     parser.add_argument('--batch-size', type=int, default=64, help='Batch size')
     parser.add_argument('--version', type=str, default='0.1.0', help='Model version')
+    parser.add_argument('--board-type', type=str, default='Fair', help='Board type (Fair, ChessOnly, ShogiOnly, ALL, etc.)')
     
     args = parser.parse_args()
     
-    train(
-        data_path=args.data,
-        model_path=args.output,
+    
+    # Determine data path
+    if args.data:
+        data_path = args.data
+    else:
+        # Default: models/{board_type}/v{version}/training_data.h5
+        data_path = f"models/{args.board_type}/v{args.version}/training_data.h5"
+    
+    # Determine output path
+    if args.output:
+        model_path = args.output
+    else:
+        # Default: models/{board_type}/v{version}/model.pt
+        import os
+        output_dir = f"models/{args.board_type}/v{args.version}"
+        os.makedirs(output_dir, exist_ok=True)
+        model_path = f"{output_dir}/model.pt"
+        
+        # Also check if data path needs to be updated relative to version?
+        # For now, we assume data might be shared or specific.
+        # If the user wants specific data, they should pass --data
+    
+    # Ensure directory exists for explicit output path too
+    output_dir = os.path.dirname(model_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+    print(f"Training version {args.version}")
+    print(f"Board type: {args.board_type}")
+    print(f"Data path: {data_path}")
+    print(f"Output path: {model_path}")
+    
+    stats = train(
+        data_path=data_path,
+        model_path=model_path,
         epochs=args.epochs,
         batch_size=args.batch_size,
+        lr=0.001,
         version=args.version
     )
+    
+    # Update README if using version-based directory
+    if not args.output:  # Only for auto-generated version directories
+        output_dir_path = os.path.dirname(model_path)
+        update_readme(output_dir_path, args.version, data_path, args.epochs, args.batch_size, 0.001, stats)

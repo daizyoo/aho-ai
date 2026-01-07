@@ -47,6 +47,7 @@ impl ModelRegistry {
     }
 
     /// Auto-discover models in the models directory
+    /// Auto-discover models in the models directory (recursive)
     pub fn discover_models<P: AsRef<Path>>(&mut self, models_dir: P) -> anyhow::Result<()> {
         let models_dir = models_dir.as_ref();
 
@@ -54,57 +55,98 @@ impl ModelRegistry {
             return Ok(());
         }
 
-        for entry in std::fs::read_dir(models_dir)? {
-            let entry = entry?;
-            let path = entry.path();
+        // Use a stack for recursive traversal
+        let mut dirs_to_visit = vec![models_dir.to_path_buf()];
 
-            if path.is_file() {
-                let extension = path.extension().and_then(|s| s.to_str());
+        while let Some(current_dir) = dirs_to_visit.pop() {
+            if let Ok(entries) = std::fs::read_dir(&current_dir) {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        let path = entry.path();
 
-                let model_type = match extension {
-                    Some("onnx") => Some(ModelType::ONNX),
-                    _ => None,
-                };
+                        if path.is_dir() {
+                            dirs_to_visit.push(path);
+                            continue;
+                        }
 
-                if let Some(model_type) = model_type {
-                    let name = path
-                        .file_stem()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or("unknown")
-                        .to_string();
+                        let extension = path.extension().and_then(|s| s.to_str());
+                        let model_type = match extension {
+                            Some("onnx") => Some(ModelType::ONNX),
+                            _ => None,
+                        };
 
-                    let version = {
-                        let mut v = None;
-                        #[cfg(feature = "ml")]
-                        {
-                            // Try to load session to read metadata
-                            if let Ok(session) =
-                                Session::builder().and_then(|b| b.commit_from_file(&path))
-                            {
-                                if let Ok(metadata) = session.metadata() {
-                                    if let Ok(Some(version)) = metadata.custom("version") {
-                                        v = Some(version);
+                        if let Some(model_type) = model_type {
+                            // Calculate relative name from base directory
+                            let relative_path = path.strip_prefix(models_dir).unwrap_or(&path);
+                            let mut name = relative_path
+                                .with_extension("") // Remove .onnx
+                                .to_string_lossy()
+                                .into_owned();
+
+                            // Strip "model" from end if it exists (e.g. Fair/v1.0/model -> Fair/v1.0)
+                            if name.ends_with("/model") {
+                                name = name.strip_suffix("/model").unwrap().to_string();
+                            } else if name == "model" {
+                                // Keep it if it's just "model" at the root, or handle as needed
+                            }
+
+                            let version = {
+                                #[cfg(feature = "ml")]
+                                {
+                                    // Try to load session to read metadata
+                                    if let Ok(session) =
+                                        Session::builder().and_then(|b| b.commit_from_file(&path))
+                                    {
+                                        if let Ok(metadata) = session.metadata() {
+                                            if let Ok(Some(version)) = metadata.custom("version") {
+                                                Some(version)
+                                            } else {
+                                                None
+                                            }
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
                                     }
                                 }
-                            }
+                                #[cfg(not(feature = "ml"))]
+                                {
+                                    None
+                                }
+                            };
+
+                            let metadata = ModelMetadata {
+                                name: name.clone(),
+                                model_type,
+                                path: path.clone(),
+                                version,
+                                created_at: None,
+                            };
+
+                            self.register(metadata);
                         }
-                        v
-                    };
-
-                    let metadata = ModelMetadata {
-                        name: name.clone(),
-                        model_type,
-                        path: path.clone(),
-                        version,
-                        created_at: None,
-                    };
-
-                    self.register(metadata);
+                    }
                 }
             }
         }
 
         Ok(())
+    }
+
+    /// Helper to read version from an ONNX file
+    pub fn get_model_version(path: &Path) -> Option<String> {
+        #[cfg(feature = "ml")]
+        {
+            if let Ok(session) = Session::builder().and_then(|b| b.commit_from_file(path)) {
+                if let Ok(metadata) = session.metadata() {
+                    if let Ok(Some(version)) = metadata.custom("version") {
+                        return Some(version);
+                    }
+                }
+            }
+        }
+        None
     }
 }
 

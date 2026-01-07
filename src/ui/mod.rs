@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 pub mod display;
+pub mod kifu_selector;
 pub mod selection;
 
 pub async fn read_input_raw(default: &str, prompt: &str) -> anyhow::Result<String> {

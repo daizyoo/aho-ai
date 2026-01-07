@@ -14,25 +14,55 @@ use crate::player::ai::evaluator::Evaluator;
 #[cfg(feature = "ml")]
 pub struct NNEvaluator {
     session: Mutex<Session>,
+    model_name: String,
 }
 
 #[cfg(feature = "ml")]
 impl NNEvaluator {
     /// Load ONNX model from file
     pub fn load(model_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::load_internal(model_path, false)
+    }
+
+    /// Load ONNX model silently (no console output)
+    pub fn load_silent(model_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::load_internal(model_path, true)
+    }
+
+    fn load_internal(model_path: &str, silent: bool) -> Result<Self, Box<dyn std::error::Error>> {
         let session = Session::builder()?.commit_from_file(model_path)?;
 
-        // Try to read version metadata
+        // Clean up name for display (remove models/ prefix and .onnx / /model suffix)
+        let name_trimmed = model_path
+            .strip_prefix("models/")
+            .unwrap_or(model_path)
+            .strip_suffix(".onnx")
+            .unwrap_or(model_path)
+            .strip_suffix("/model")
+            .unwrap_or(model_path)
+            .strip_suffix("model")
+            .unwrap_or(model_path)
+            .trim_end_matches('/')
+            .to_string();
+
+        let mut version_str = None;
         if let Ok(metadata) = session.metadata() {
             if let Ok(Some(version)) = metadata.custom("version") {
-                eprintln!("[ML] Loaded model: {} (v{})\r", model_path, version);
+                version_str = Some(version);
+            }
+        }
+
+        if !silent {
+            if let Some(ref v) = version_str {
+                eprintln!("[ML] Loaded model: {} (v{})\r", name_trimmed, v);
             } else {
-                eprintln!("[ML] Loaded model: {} (no version)\r", model_path);
+                eprintln!("[ML] Loaded model: {} (no version)\r", name_trimmed);
             }
         }
 
         Ok(Self {
             session: Mutex::new(session),
+            model_name: name_trimmed,
         })
     }
 
@@ -72,13 +102,10 @@ impl Evaluator for NNEvaluator {
         match self.run_inference(&features) {
             Ok(value) => {
                 let score = (value * 10000.0) as i32;
-                // Show confirmation every 100 evaluations
-                if count % 100 == 0 {
-                    // eprintln!(
-                    //     "[ML] Evaluation #{}: NN value={:.4} → score={}\r",
-                    //     count, value, score
-                    // );
-                }
+                // Show confirmation every 1000 evaluations to indicate activity
+                // if count > 0 && count % 10000 == 0 {
+                //     eprintln!("[ML] Running: {} evals, last_val={:.4}\r", count, value);
+                // }
                 score
             }
             Err(e) => {
@@ -88,14 +115,16 @@ impl Evaluator for NNEvaluator {
         }
     }
 
-    fn name(&self) -> &str {
-        "NeuralNetwork"
+    fn name(&self) -> String {
+        format!("NeuralNetwork ({})", self.model_name)
     }
 }
 
 // Stub when ml feature disabled
 #[cfg(not(feature = "ml"))]
-pub struct NNEvaluator;
+pub struct NNEvaluator {
+    pub model_name: String,
+}
 
 #[cfg(not(feature = "ml"))]
 impl NNEvaluator {
@@ -110,7 +139,7 @@ impl Evaluator for NNEvaluator {
         0
     }
 
-    fn name(&self) -> &str {
-        "NeuralNetwork (disabled)"
+    fn name(&self) -> String {
+        "NeuralNetwork (disabled)".to_string()
     }
 }

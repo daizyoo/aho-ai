@@ -67,7 +67,7 @@ impl BoardSetupType {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct SelfPlayConfig {
     pub num_games: usize,
     pub board_setup: BoardSetupType,
@@ -76,6 +76,7 @@ pub struct SelfPlayConfig {
     pub save_kifus: bool,
     pub use_parallel: bool,
     pub update_interval_moves: usize, // How often workers update shared state
+    pub model_path: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -83,6 +84,10 @@ struct GameResult {
     winner: Option<PlayerId>,
     moves: usize,
     time_ms: u128,
+    /// Final material difference (positive favors Player1)
+    material_diff: i32,
+    /// Average move time in milliseconds
+    avg_move_time_ms: f32,
 }
 
 #[derive(Serialize)]
@@ -134,6 +139,10 @@ pub struct GameExecutionResult {
     pub move_count: usize,
     pub thinking_data: Vec<ThinkingInfo>,
     pub duration: std::time::Duration,
+    /// Position evaluations throughout the game (from Player1's perspective)
+    pub position_evaluations: Vec<i32>,
+    /// Move indices where there were large evaluation swings (>2000 centipawns)
+    pub critical_moments: Vec<usize>,
 }
 
 // State for a single worker slot
@@ -150,6 +159,51 @@ struct SharedProgress {
     draws: AtomicUsize,
     total_games: usize,
     is_running: AtomicBool,
+}
+
+/// Compute enhanced game metrics from thinking data and final board state
+fn compute_game_metrics(
+    game: &Game,
+    thinking_data: &[ThinkingInfo],
+    duration: Duration,
+) -> (i32, f32, Vec<i32>, Vec<usize>) {
+    // 1. Calculate final material difference
+    let material_diff = crate::player::ai::eval::evaluate(&game.board);
+
+    // 2. Calculate average move time
+    let avg_move_time_ms = if !thinking_data.is_empty() {
+        let total_time: u128 = thinking_data.iter().map(|t| t.time_ms as u128).sum();
+        (total_time as f32) / (thinking_data.len() as f32)
+    } else {
+        (duration.as_millis() as f32) / thinking_data.len().max(1) as f32
+    };
+
+    // 3. Extract evaluation trajectory (from Player1's perspective)
+    let position_evaluations: Vec<i32> = thinking_data
+        .iter()
+        .map(|t| t.score) // Already normalized to Player1's perspective in run_game_silent
+        .collect();
+
+    // 4. Identify critical moments (large evaluation swings > 2000 centipawns)
+    let mut critical_moments = Vec::new();
+    const CRITICAL_THRESHOLD: i32 = 2000;
+
+    for i in 1..position_evaluations.len() {
+        let prev_eval = position_evaluations[i - 1];
+        let curr_eval = position_evaluations[i];
+        let swing = (curr_eval - prev_eval).abs();
+
+        if swing > CRITICAL_THRESHOLD {
+            critical_moments.push(i); // Store move index
+        }
+    }
+
+    (
+        material_diff,
+        avg_move_time_ms,
+        position_evaluations,
+        critical_moments,
+    )
 }
 
 // Parallel self-play implementation
@@ -314,15 +368,27 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
 
     println!("\r\n\r\nProcessing results...\r");
 
-    // Process results sequentially
+    // Generate unique run ID (timestamp)
+    let run_id = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
+
+    // Loop for processing results
     for (idx, result) in results.into_iter().enumerate() {
         let game_num = idx + 1;
         let exec_result = result?;
+
+        // Compute enhanced metrics
+        let (material_diff, avg_move_time_ms, _, _) = compute_game_metrics(
+            &exec_result.game,
+            &exec_result.thinking_data,
+            exec_result.duration,
+        );
 
         let game_result = GameResult {
             winner: exec_result.winner,
             moves: exec_result.move_count,
             time_ms: exec_result.duration.as_millis(),
+            material_diff,
+            avg_move_time_ms,
         };
 
         stats.add_result(game_result);
@@ -335,6 +401,7 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
                 config.ai1_strength,
                 config.ai2_strength,
                 exec_result.thinking_data,
+                &run_id,
             )?;
         }
     }
@@ -444,11 +511,15 @@ fn run_single_game(
         PlayerId::Player1,
         "AI-P1",
         config.ai1_strength,
+        config.model_path.clone(),
+        true,
     ));
     let p2: Box<dyn PlayerController> = Box::new(AlphaBetaAI::new(
         PlayerId::Player2,
         "AI-P2",
         config.ai2_strength,
+        config.model_path.clone(),
+        true,
     ));
 
     let mut game = Game::new(board);
@@ -459,12 +530,18 @@ fn run_single_game(
 
     let elapsed = start_time.elapsed();
 
+    // Compute enhanced game metrics
+    let (material_diff, avg_move_time_ms, position_evaluations, critical_moments) =
+        compute_game_metrics(&game, &thinking_data, elapsed);
+
     Ok(GameExecutionResult {
         game,
         winner,
         move_count,
         thinking_data,
         duration: elapsed,
+        position_evaluations,
+        critical_moments,
     })
 }
 
@@ -571,17 +648,22 @@ fn save_kifu(
     ai1_strength: AIStrength,
     ai2_strength: AIStrength,
     thinking_data: Vec<ThinkingInfo>,
+    run_id: &str,
 ) -> anyhow::Result<()> {
     let base_dir = "selfplay_kifu";
-    let board_dir = format!("{}/{}", base_dir, board_setup);
+    // Directory structure: selfplay_kifu/{BoardSetup}/{RunID}/
+    let board_dir = format!("{}/{}/{}", base_dir, board_setup, run_id);
     std::fs::create_dir_all(&board_dir)?;
 
-    let filename = format!(
-        "{}/game_{:04}_{}.json",
-        board_dir,
-        game_num,
-        chrono::Local::now().format("%Y%m%d_%H%M%S")
-    );
+    let filename = format!("{}/game_{:04}.json", board_dir, game_num);
+
+    let config = crate::player::ai::config::AIConfig::get();
+
+    let model_version = if let Some(ref path) = config.evaluation.nn_model_path {
+        crate::ml::model_registry::ModelRegistry::get_model_version(std::path::Path::new(path))
+    } else {
+        None
+    };
 
     let kifu_data = KifuData {
         board_setup: board_setup.to_string(),
@@ -589,6 +671,9 @@ fn save_kifu(
         player2_name: format!("AI ({:?})", ai2_strength),
         moves: game.history.clone(),
         thinking_data: Some(thinking_data),
+        evaluator: config.evaluation.evaluator_type.clone(),
+        model_path: config.evaluation.nn_model_path.clone(),
+        model_version,
     };
 
     let file = std::fs::File::create(&filename)?;

@@ -80,7 +80,7 @@ impl BoardFeatureExtractor {
                     let normalized = (count / MAX_HAND_COUNT).min(1.0);
 
                     // Flip perspective if needed
-                    let value = if (player == perspective) {
+                    let value = if player == perspective {
                         normalized
                     } else {
                         -normalized

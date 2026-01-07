@@ -23,6 +23,12 @@ pub struct KifuData {
     pub moves: Vec<Move>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thinking_data: Option<Vec<ThinkingInfo>>,
+    #[serde(default)]
+    pub evaluator: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_version: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -268,12 +274,24 @@ impl Game {
 
             match std::fs::File::create(&filepath) {
                 Ok(file) => {
+                    let config = crate::player::ai::config::AIConfig::get();
+                    let model_version = if let Some(ref path) = config.evaluation.nn_model_path {
+                        crate::ml::model_registry::ModelRegistry::get_model_version(
+                            std::path::Path::new(path),
+                        )
+                    } else {
+                        None
+                    };
+
                     let kifu_data = KifuData {
                         board_setup: self.board_setup.clone(),
                         thinking_data: None,
                         player1_name: self.player1_name.clone(),
                         player2_name: self.player2_name.clone(),
                         moves: self.history.clone(),
+                        evaluator: config.evaluation.evaluator_type.clone(),
+                        model_path: config.evaluation.nn_model_path.clone(),
+                        model_version,
                     };
                     // Minified JSON (not pretty) to keep it lightweight
                     if let Err(e) = serde_json::to_writer(file, &kifu_data) {

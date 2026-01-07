@@ -14,7 +14,7 @@
         },
         "pst_enabled": true,
         "evaluator_type": "NeuralNetwork",
-        "nn_model_path": "models/shogi_model.onnx"
+        "nn_model_path": "models/ShogiOnly/v0.1.0/model.onnx"
     },
     "search": {
         "max_depth_light": 2,

@@ -15,5 +15,5 @@ pub trait Evaluator: Send + Sync {
     fn evaluate(&mut self, board: &Board) -> i32;
 
     /// Get evaluator name for debugging
-    fn name(&self) -> &str;
+    fn name(&self) -> String;
 }

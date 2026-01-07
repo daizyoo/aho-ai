@@ -27,8 +27,8 @@ impl Evaluator for HandcraftedEvaluator {
         evaluate(board)
     }
 
-    fn name(&self) -> &str {
-        "Handcrafted"
+    fn name(&self) -> String {
+        "Handcrafted".to_string()
     }
 }
 
@@ -88,6 +88,68 @@ fn piece_val(k: PieceKind) -> i32 {
     }
 }
 
+/// Game phase for phase-dependent evaluation
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum GamePhase {
+    Opening, // Most pieces alive
+    Midgame, // Normal play
+    Endgame, // Few pieces left
+}
+
+/// Count total material on board (both players)
+fn count_total_material(board: &Board) -> i32 {
+    let mut total = 0;
+    for piece in board.pieces.values() {
+        total += piece_val(piece.kind);
+    }
+    total
+}
+
+/// Detect current game phase based on material
+fn detect_game_phase(board: &Board) -> GamePhase {
+    let total_material = count_total_material(board);
+
+    // Thresholds tuned for 9x9 board with mixed pieces
+    if total_material > 8000 {
+        GamePhase::Opening
+    } else if total_material > 4000 {
+        GamePhase::Midgame
+    } else {
+        GamePhase::Endgame
+    }
+}
+
+/// Calculate mobility score (piece activity)
+fn calculate_mobility(board: &Board, player: PlayerId) -> i32 {
+    let moves = crate::logic::legal_moves(board, player);
+    let mut weighted_mobility = 0;
+
+    for mv in &moves {
+        match mv {
+            crate::core::Move::Normal { to, promote, .. } => {
+                // Check if destination square has an enemy piece (capture)
+                let is_capture = board.get_piece(*to).is_some();
+
+                if is_capture {
+                    weighted_mobility += 3;
+                } else if promote.is_some() {
+                    weighted_mobility += 2;
+                } else {
+                    weighted_mobility += 1;
+                }
+            }
+            crate::core::Move::Drop { .. } => {
+                // Drops provide flexibility
+                weighted_mobility += 1;
+            }
+        }
+    }
+
+    // Scale to reasonable range (0-200 CP)
+    // Typical position has 30-80 legal moves
+    (weighted_mobility * 2).min(200)
+}
+
 /// Evaluates the current board state and returns a score from Player1's perspective.
 ///
 /// Positive score indicates Player1 advantage.
@@ -100,6 +162,9 @@ pub fn evaluate(board: &Board) -> i32 {
     // Use cached config - zero overhead after first access
     let hand_multiplier = AIConfig::get().evaluation.hand_piece_bonus_multiplier as f32;
     let mut score = 0;
+
+    // === 0. Detect Game Phase ===
+    let phase = detect_game_phase(board);
 
     // 1. Material & PST (Piece-Square Tables)
     let mut p1_king = None;
@@ -174,13 +239,12 @@ pub fn evaluate(board: &Board) -> i32 {
         }
     }
 
-    // 2. King Safety Bonus (Castle)
-    // Add bonus for friendly pieces around the king.
+    // 2. King Safety Bonus (Enhanced with escape squares & attackers)
     if let Some(kpos) = p1_king {
-        score += calc_king_safety(board, kpos, PlayerId::Player1);
+        score += enhanced_king_safety(board, kpos, PlayerId::Player1, phase);
     }
     if let Some(kpos) = p2_king {
-        score -= calc_king_safety(board, kpos, PlayerId::Player2);
+        score -= enhanced_king_safety(board, kpos, PlayerId::Player2, phase);
     }
 
     // 2. Hand Material
@@ -207,12 +271,33 @@ pub fn evaluate(board: &Board) -> i32 {
         }
     }
 
+    // NEW: Mobility Evaluation (piece activity)
+    let p1_mobility = calculate_mobility(board, PlayerId::Player1);
+    let p2_mobility = calculate_mobility(board, PlayerId::Player2);
+    score += p1_mobility - p2_mobility;
+
+    // NEW: Tactical Patterns (passed pawns, bishop pair, rooks on open files)
+    let p1_tactical = detect_tactical_patterns(board, PlayerId::Player1);
+    let p2_tactical = detect_tactical_patterns(board, PlayerId::Player2);
+    score += p1_tactical - p2_tactical;
+
+    // NEW: Development (opening only)
+    let p1_dev = development_score(board, PlayerId::Player1, phase);
+    let p2_dev = development_score(board, PlayerId::Player2, phase);
+    score += p1_dev - p2_dev;
+
     score
 }
 
 // Helper for King Safety
 // Checks 3x3 area around king for friendly defenders
-fn calc_king_safety(board: &Board, kpos: crate::core::Position, owner: PlayerId) -> i32 {
+// Now phase-aware: more important in opening, less in endgame
+fn calc_king_safety(
+    board: &Board,
+    kpos: crate::core::Position,
+    owner: PlayerId,
+    phase: GamePhase,
+) -> i32 {
     let mut safety = 0;
     // Offsets for neighbors
     let offsets = [
@@ -255,7 +340,245 @@ fn calc_king_safety(board: &Board, kpos: crate::core::Position, owner: PlayerId)
             }
         }
     }
+
+    // Phase adjustment: King safety more critical in opening
+    match phase {
+        GamePhase::Opening => safety * 2, // 2x weight: protect king early
+        GamePhase::Midgame => safety,     // Normal weight
+        GamePhase::Endgame => safety / 2, // 0.5x weight: king can be active
+    }
+}
+
+/// Count escape squares for king (empty or capturable squares)
+fn count_king_escape_squares(
+    board: &Board,
+    king_pos: crate::core::Position,
+    owner: PlayerId,
+) -> i32 {
+    let offsets = [
+        (-1, -1),
+        (0, -1),
+        (1, -1),
+        (-1, 0),
+        (1, 0),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+    ];
+
+    let mut escape_count = 0;
+    for (dx, dy) in offsets {
+        let nx = king_pos.x as i32 + dx;
+        let ny = king_pos.y as i32 + dy;
+
+        if nx >= 0 && nx < board.width as i32 && ny >= 0 && ny < board.height as i32 {
+            let npos = crate::core::Position {
+                x: nx as usize,
+                y: ny as usize,
+            };
+
+            match board.get_piece(npos) {
+                None => escape_count += 1,                                // Empty square
+                Some(piece) if piece.owner != owner => escape_count += 1, // Can capture
+                _ => {}                                                   // Blocked by own piece
+            }
+        }
+    }
+
+    escape_count
+}
+
+/// Count enemy attackers near king (within 2 squares)
+fn count_enemy_attackers(board: &Board, king_pos: crate::core::Position, owner: PlayerId) -> i32 {
+    let mut attackers = 0;
+
+    for dy in -2..=2 {
+        for dx in -2..=2 {
+            if dx == 0 && dy == 0 {
+                continue;
+            }
+
+            let nx = king_pos.x as i32 + dx;
+            let ny = king_pos.y as i32 + dy;
+
+            if nx >= 0 && nx < board.width as i32 && ny >= 0 && ny < board.height as i32 {
+                let npos = crate::core::Position {
+                    x: nx as usize,
+                    y: ny as usize,
+                };
+
+                if let Some(piece) = board.get_piece(npos) {
+                    if piece.owner != owner {
+                        attackers += match piece.kind {
+                            PieceKind::S_Rook
+                            | PieceKind::S_ProRook
+                            | PieceKind::C_Rook
+                            | PieceKind::C_Queen => 3,
+                            PieceKind::S_Bishop | PieceKind::S_ProBishop | PieceKind::C_Bishop => 2,
+                            _ => 1,
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    attackers
+}
+
+/// Enhanced king safety with multiple factors
+fn enhanced_king_safety(
+    board: &Board,
+    king_pos: crate::core::Position,
+    owner: PlayerId,
+    phase: GamePhase,
+) -> i32 {
+    let mut safety = 0;
+
+    // 1. Basic defender count (existing logic)
+    safety += calc_king_safety(board, king_pos, owner, phase);
+
+    // 2. Escape squares (important to avoid checkmate)
+    let escapes = count_king_escape_squares(board, king_pos, owner);
+    safety += escapes * 15;
+
+    // 3. Enemy attackers penalty
+    let attackers = count_enemy_attackers(board, king_pos, owner);
+    safety -= attackers * 30;
+
     safety
+}
+
+/// Detect tactical patterns and return bonus score
+fn detect_tactical_patterns(board: &Board, player: PlayerId) -> i32 {
+    let mut bonus = 0;
+
+    // 1. Passed pawns
+    bonus += count_passed_pawns(board, player) * 50;
+
+    // 2. Bishop pair
+    if has_bishop_pair(board, player) {
+        bonus += 30;
+    }
+
+    // 3. Rooks on open files
+    bonus += count_rooks_on_open_files(board, player) * 40;
+
+    bonus
+}
+
+/// Count passed pawns (simplified: no enemy pawns ahead in column)
+fn count_passed_pawns(board: &Board, player: PlayerId) -> i32 {
+    let mut passed = 0;
+    let forward_dir = if player == PlayerId::Player1 { -1 } else { 1 };
+
+    for (&pos, piece) in &board.pieces {
+        if piece.owner == player && matches!(piece.kind, PieceKind::S_Pawn | PieceKind::C_Pawn) {
+            let mut is_passed = true;
+
+            // Check ahead in this column for enemy pawns
+            let mut check_y = pos.y as i32 + forward_dir;
+            while check_y >= 0 && check_y < 9 {
+                let check_pos = crate::core::Position {
+                    x: pos.x,
+                    y: check_y as usize,
+                };
+
+                if let Some(p) = board.get_piece(check_pos) {
+                    if p.owner != player && matches!(p.kind, PieceKind::S_Pawn | PieceKind::C_Pawn)
+                    {
+                        is_passed = false;
+                        break;
+                    }
+                }
+
+                check_y += forward_dir;
+            }
+
+            if is_passed {
+                passed += 1;
+            }
+        }
+    }
+
+    passed
+}
+
+/// Check if player has bishop pair
+fn has_bishop_pair(board: &Board, player: PlayerId) -> bool {
+    let mut bishop_count = 0;
+
+    for piece in board.pieces.values() {
+        if piece.owner == player && matches!(piece.kind, PieceKind::S_Bishop | PieceKind::C_Bishop)
+        {
+            bishop_count += 1;
+            if bishop_count >= 2 {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+/// Count rooks on open files
+fn count_rooks_on_open_files(board: &Board, player: PlayerId) -> i32 {
+    let mut rooks_on_open = 0;
+
+    for (&pos, piece) in &board.pieces {
+        if piece.owner == player
+            && matches!(
+                piece.kind,
+                PieceKind::S_Rook | PieceKind::C_Rook | PieceKind::S_ProRook
+            )
+        {
+            let mut has_pawn = false;
+            for y in 0..9 {
+                let check_pos = crate::core::Position { x: pos.x, y };
+                if let Some(p) = board.get_piece(check_pos) {
+                    if matches!(p.kind, PieceKind::S_Pawn | PieceKind::C_Pawn) {
+                        has_pawn = true;
+                        break;
+                    }
+                }
+            }
+
+            if !has_pawn {
+                rooks_on_open += 1;
+            }
+        }
+    }
+
+    rooks_on_open
+}
+
+/// Penalize undeveloped pieces in opening
+fn development_score(board: &Board, player: PlayerId, phase: GamePhase) -> i32 {
+    if !matches!(phase, GamePhase::Opening) {
+        return 0; // Only active in opening
+    }
+
+    let mut undeveloped = 0;
+    let start_rank = if player == PlayerId::Player1 { 8 } else { 0 };
+
+    for (&pos, piece) in &board.pieces {
+        if piece.owner == player && pos.y == start_rank {
+            // Major pieces should be developed
+            if matches!(
+                piece.kind,
+                PieceKind::S_Bishop
+                    | PieceKind::C_Bishop
+                    | PieceKind::S_Rook
+                    | PieceKind::C_Rook
+                    | PieceKind::C_Knight
+                    | PieceKind::S_Knight
+            ) {
+                undeveloped += 1;
+            }
+        }
+    }
+
+    -undeveloped * 10 // Small penalty per undeveloped piece
 }
 
 #[cfg(test)]

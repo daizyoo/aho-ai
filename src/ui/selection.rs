@@ -6,6 +6,7 @@ use std::time::Duration;
 
 pub fn create_player_controllers(
     choice: &str,
+    model_path: Option<String>,
 ) -> anyhow::Result<(
     Box<dyn PlayerController>,
     Box<dyn PlayerController>,
@@ -32,6 +33,8 @@ pub fn create_player_controllers(
                 PlayerId::Player2,
                 "AlphaBeta-Light",
                 crate::player::ai::AIStrength::Light,
+                model_path,
+                false,
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
         )),
@@ -44,6 +47,8 @@ pub fn create_player_controllers(
                 PlayerId::Player2,
                 "AlphaBeta-Strong",
                 crate::player::ai::AIStrength::Strong,
+                model_path.clone(),
+                false,
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
         )),
@@ -52,15 +57,98 @@ pub fn create_player_controllers(
                 PlayerId::Player1,
                 "AlphaBeta-Strong-1",
                 crate::player::ai::AIStrength::Strong,
+                model_path.clone(),
+                false,
             )),
             Box::new(crate::player::ai::AlphaBetaAI::new(
                 PlayerId::Player2,
                 "AlphaBeta-Strong-2",
                 crate::player::ai::AIStrength::Strong,
+                model_path,
+                false,
             )),
             PerspectiveMode::Fixed(PlayerId::Player1),
         )),
         _ => Err(anyhow::anyhow!("Invalid selection")),
+    }
+}
+
+pub fn select_model() -> anyhow::Result<Option<String>> {
+    use crate::ml::model_registry::ModelRegistry;
+    use std::io::Write;
+
+    let mut registry = ModelRegistry::new();
+    registry.discover_models("models")?;
+
+    let models = registry.list();
+    if models.is_empty() {
+        println!("\r\n[!] No ML models found in 'models/' directory.\r");
+        println!("Using default model if configured in ai_config.json.\r");
+        std::thread::sleep(Duration::from_secs(2));
+        return Ok(None);
+    }
+
+    // Sort models by name for consistency
+    let mut models: Vec<_> = models.into_iter().collect();
+    models.sort_by(|a, b| a.name.cmp(&b.name));
+
+    let mut selected_idx = 0;
+
+    print!("\r\nSelect ML Model (Use ↑/↓ and Enter):\r\n");
+
+    loop {
+        // Render list
+        for (i, model) in models.iter().enumerate() {
+            let prefix = if i == selected_idx { "> " } else { "  " };
+            let version = model
+                .version
+                .as_ref()
+                .map(|v| format!(" (v{})", v))
+                .unwrap_or_default();
+            print!("\r\x1B[K{}{}{}\r\n", prefix, model.name, version);
+        }
+
+        std::io::stdout().flush()?;
+
+        // Move cursor back up
+        print!("\x1B[{}A", models.len());
+
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Up => {
+                        if selected_idx > 0 {
+                            selected_idx -= 1;
+                        }
+                    }
+                    KeyCode::Down => {
+                        if selected_idx < models.len() - 1 {
+                            selected_idx += 1;
+                        }
+                    }
+                    KeyCode::Enter => {
+                        // Clear the menu display area
+                        for _ in 0..models.len() {
+                            print!("\r\x1B[K\r\n");
+                        }
+                        print!("\x1B[{}A", models.len());
+
+                        let selected_model = models[selected_idx];
+                        println!("Selected Model: {}\r", selected_model.path.display());
+                        return Ok(Some(selected_model.path.to_string_lossy().to_string()));
+                    }
+                    KeyCode::Char('q') | KeyCode::Esc => {
+                        // Clear the menu
+                        for _ in 0..models.len() {
+                            print!("\r\x1B[K\r\n");
+                        }
+                        print!("\x1B[{}A", models.len());
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+            }
+        }
     }
 }
 
@@ -124,8 +212,11 @@ pub fn select_board_setup() -> anyhow::Result<(Board, String)> {
 
     println!("\r"); // New line after selection
 
-    let p1_hand = ask_hand_config("Player 1")?;
-    let p2_hand = ask_hand_config("Player 2")?;
+    let (p1_hand, p2_hand) = match b_choice {
+        "3" | "5" | "6" => (Some(true), Some(true)), // Shogi/Fair modes always enable hands
+        "4" => (Some(false), Some(false)),           // ChessOnly always disables hands
+        _ => (ask_hand_config("Player 1")?, ask_hand_config("Player 2")?),
+    };
 
     Ok(match b_choice {
         "1" => (

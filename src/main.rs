@@ -246,24 +246,44 @@ async fn run_local() -> anyhow::Result<()> {
     };
 
     if p_choice == "5" {
-        let kifu_dir = "kifu";
-        if std::fs::read_dir(kifu_dir).is_err() {
-            std::fs::create_dir_all(kifu_dir)?;
-        }
+        // Replay - Use new scrollable selector
+        use crate::ui::kifu_selector::KifuSelector;
+        use std::path::PathBuf;
 
-        // Loop to allow browsing multiple kifus
-        while let Some(path) = crate::ui::select_kifu_file(kifu_dir)? {
-            let file = std::fs::File::open(&path)?;
-            let kifu_data: crate::game::KifuData = serde_json::from_reader(file)?;
+        let dirs = vec![PathBuf::from("kifu"), PathBuf::from("selfplay_results")];
 
-            let mut viewer = crate::game::replay::ReplayViewer::new(kifu_data);
-            viewer.run()?;
+        let mut selector = KifuSelector::scan_directories(&dirs)?;
+
+        loop {
+            match selector.run()? {
+                Some(selected_path) => {
+                    // User selected a file
+                    let mut viewer =
+                        crate::game::replay::ReplayViewer::from_kifu_path(&selected_path)?;
+                    viewer.run()?;
+                    // After replay, return to file selection
+                }
+                None => {
+                    // User quit
+                    break;
+                }
+            }
         }
 
         return Ok(());
     }
 
-    let (p1, p2, perspective) = crate::ui::selection::create_player_controllers(p_choice)?;
+    let mut model_path = None;
+    if p_choice == "2" || p_choice == "3" || p_choice == "4" {
+        use crate::player::ai::config::AIConfig;
+        let config = AIConfig::get();
+        if config.evaluation.evaluator_type == "NeuralNetwork" {
+            model_path = crate::ui::selection::select_model()?;
+        }
+    }
+
+    let (p1, p2, perspective) =
+        crate::ui::selection::create_player_controllers(p_choice, model_path.clone())?;
 
     // Display evaluator if AI is involved
     if p_choice == "2" || p_choice == "3" || p_choice == "4" {
@@ -273,6 +293,8 @@ async fn run_local() -> anyhow::Result<()> {
             PlayerId::Player1,
             "Display",
             crate::player::ai::alpha_beta::AIStrength::Strong,
+            model_path,
+            true,
         );
         print!("\r\n[AI Configuration]\r\n");
         print!("Evaluator: {}\r\n\r\n", temp_ai.evaluator_name());
@@ -425,6 +447,15 @@ async fn run_selfplay() -> anyhow::Result<()> {
             }
         }
     };
+    let mut model_path = None;
+    {
+        use crate::player::ai::config::AIConfig;
+        let config = AIConfig::get();
+        if config.evaluation.evaluator_type == "NeuralNetwork" {
+            model_path = crate::ui::selection::select_model()?;
+        }
+    }
+
     print!("\r\n\r\nRunning {} games...\r\n\r\n", num_games);
 
     // Run self-play
@@ -436,12 +467,19 @@ async fn run_selfplay() -> anyhow::Result<()> {
         save_kifus: true,
         use_parallel: true, // Default to parallel
         update_interval_moves: 1,
+        model_path: model_path.clone(),
     };
 
     // Display configuration before starting
     use crate::core::PlayerId;
     use crate::player::ai::alpha_beta::AlphaBetaAI;
-    let temp_ai = AlphaBetaAI::new(PlayerId::Player1, "Display", config.ai1_strength);
+    let temp_ai = AlphaBetaAI::new(
+        PlayerId::Player1,
+        "Display",
+        config.ai1_strength,
+        model_path,
+        true,
+    );
 
     print!("\r\n");
     print!("=== Self-Play Configuration ===\r\n");

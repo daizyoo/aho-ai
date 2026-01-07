@@ -1,4 +1,4 @@
-use super::eval::{self, HandcraftedEvaluator};
+use super::eval::HandcraftedEvaluator;
 use super::evaluator::Evaluator;
 use super::tt::{Bound, TranspositionTable};
 use crate::core::{Board, Move, PlayerId};
@@ -30,7 +30,13 @@ pub enum AIStrength {
 }
 
 impl AlphaBetaAI {
-    pub fn new(player_id: PlayerId, name: &str, strength: AIStrength) -> Self {
+    pub fn new(
+        player_id: PlayerId,
+        name: &str,
+        strength: AIStrength,
+        custom_model_path: Option<String>,
+        silent: bool,
+    ) -> Self {
         use crate::player::ai::config::AIConfig;
 
         // Create evaluator based on config
@@ -41,25 +47,34 @@ impl AlphaBetaAI {
                 {
                     use crate::ml::nn_evaluator::NNEvaluator;
 
-                    if let Some(ref model_path) = config.evaluation.nn_model_path {
-                        match NNEvaluator::load(model_path) {
+                    let model_path =
+                        custom_model_path.or_else(|| config.evaluation.nn_model_path.clone());
+
+                    if let Some(ref path) = model_path {
+                        let result = if silent {
+                            NNEvaluator::load_silent(path)
+                        } else {
+                            NNEvaluator::load(path)
+                        };
+
+                        match result {
                             Ok(nn_eval) => {
-                                // Successfully loaded (silent)
+                                // Successfully loaded
                                 Box::new(nn_eval)
                             }
                             Err(_e) => {
-                                // Failed to load, fallback (silent)
+                                // Failed to load, fallback
                                 Box::new(HandcraftedEvaluator::new())
                             }
                         }
                     } else {
-                        // No model path (silent)
+                        // No model path
                         Box::new(HandcraftedEvaluator::new())
                     }
                 }
                 #[cfg(not(feature = "ml"))]
                 {
-                    // ML feature not enabled (silent)
+                    // ML feature not enabled
                     Box::new(HandcraftedEvaluator::new())
                 }
             }
