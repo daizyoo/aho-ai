@@ -1,39 +1,39 @@
-# Versioning Guide
+# バージョン管理ガイド
 
-Complete guide for version management in Shogi-Aho-AI project.
+Shogi-Aho-AI プロジェクトのバージョン管理完全ガイド。
 
 ---
 
-## Versioning Scheme
+## バージョニングスキーム
 
-This project follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`
+このプロジェクトは [セマンティックバージョニング](https://semver.org/) に従います: `MAJOR.MINOR.PATCH`
 
 ```
 v0.5.0
   │ │ │
-  │ │ └─ PATCH: Bug fixes, performance improvements
-  │ └─── MINOR: New features, non-breaking changes
-  └───── MAJOR: Breaking changes, major refactors
+  │ │ └─ PATCH: バグ修正、性能改善
+  │ └─── MINOR: 新機能、後方互換性のある変更
+  └───── MAJOR: 破壊的変更、大規模リファクタリング
 ```
 
 ---
 
-## Version Bump Guidelines
+## バージョン更新ガイドライン
 
 ### PATCH (0.5.0 → 0.5.1)
 
-**When to use**: Bug fixes, performance improvements, documentation
+**使用時**: バグ修正、性能改善、ドキュメント更新
 
-**Examples**:
+**例**:
 
-- ✅ Fixed PST index calculation bug
-- ✅ Optimized thread pool configuration
-- ✅ Updated README documentation
-- ✅ Fixed typos or formatting
-- ✅ Performance tweaks without API changes
-- ✅ Minor lint fixes
+- ✅ PST インデックス計算バグの修正
+- ✅ スレッドプール設定の最適化
+- ✅ README ドキュメントの更新
+- ✅ タイポや書式の修正
+- ✅ API を変更しない性能調整
+- ✅ 軽微な lint 修正
 
-**Command**:
+**コマンド**:
 
 ```bash
 python3 scripts/bump_version.py patch
@@ -43,19 +43,19 @@ python3 scripts/bump_version.py patch
 
 ### MINOR (0.5.0 → 0.6.0)
 
-**When to use**: New features, significant improvements, backward-compatible changes
+**使用時**: 新機能、重要な改善、後方互換性のある変更
 
-**Examples**:
+**例**:
 
-- ✅ Added new analysis tools
-- ✅ New command-line options
-- ✅ New board setup types
-- ✅ Enhanced self-play features
-- ✅ New AI strength levels
-- ✅ UI improvements
-- ✅ New evaluator features
+- ✅ 新しい分析ツールの追加
+- ✅ 新しいコマンドラインオプション
+- ✅ 新しい盤面設定タイプ
+- ✅ Self-Play 機能の強化
+- ✅ 新しい AI 強度レベル
+- ✅ UI 改善
+- ✅ 新しい評価器機能
 
-**Command**:
+**コマンド**:
 
 ```bash
 python3 scripts/bump_version.py minor
@@ -65,17 +65,17 @@ python3 scripts/bump_version.py minor
 
 ### MAJOR (0.5.0 → 1.0.0)
 
-**When to use**: Breaking changes, major refactors, incompatible changes
+**使用時**: 破壊的変更、大規模リファクタリング、互換性のない変更
 
-**Examples**:
+**例**:
 
-- ✅ Changed core game logic API
-- ✅ Removed deprecated features
-- ✅ Major architectural refactor
-- ✅ Changed file formats (breaking compatibility)
-- ✅ First stable release (0.x.x → 1.0.0)
+- ✅ コアゲームロジック API の変更
+- ✅ 非推奨機能の削除
+- ✅ 大規模アーキテクチャリファクタリング
+- ✅ ファイル形式の変更 (互換性破壊)
+- ✅ 最初の安定版リリース (0.x.x → 1.0.0)
 
-**Command**:
+**コマンド**:
 
 ```bash
 python3 scripts/bump_version.py major
@@ -83,169 +83,169 @@ python3 scripts/bump_version.py major
 
 ---
 
-## Workflow
+## ワークフロー
 
-### Standard Workflow
+### 標準ワークフロー
 
 ```bash
-# 1. Make your changes
-# 2. Test thoroughly
-# 3. Bump version
+# 1. 変更を加える
+# 2. 徹底的にテスト
+# 3. バージョン更新
 python3 scripts/bump_version.py [patch|minor|major]
 
-# 4. Commit changes
+# 4. 変更をコミット
 git add Cargo.toml
-git commit -m "chore: Bump version to X.Y.Z"
+git commit -m \"chore: バージョンを X.Y.Z に更新\"
 ```
 
-### Quick Workflow (auto-commit)
+### クイックワークフロー (自動コミット)
 
 ```bash
-# Bump version and create commit in one step
-python3 scripts/bump_version.py minor --commit -m "feat: Add new feature"
+# バージョン更新とコミットを一度に
+python3 scripts/bump_version.py minor --commit -m \"feat: 新機能追加\"
 ```
 
-### Dry Run (preview)
+### ドライラン (プレビュー)
 
 ```bash
-# Preview changes without modifying files
+# ファイルを変更せずにプレビュー
 python3 scripts/bump_version.py patch --dry-run
 ```
 
 ---
 
-## Version History
+## バージョン履歴
 
-### 0.5.0 (2026-01-07) - Current
+### 0.5.0 (2026-01-07) - 現在
 
-**Major Enhancements**:
+**主要な機能強化**:
 
-#### Evaluation Function Improvements (+210-360 Elo)
+#### 評価関数改善 (+210-360 Elo)
 
-1. **Mobility Evaluation** (+100-150 Elo)
+1. **モビリティ評価** (+100-150 Elo)
 
-   - Piece activity scoring
-   - Weighted moves (captures, promotions)
+   - 駒の活動性スコアリング
+   - 重み付けされた手 (キャプチャ、プロモーション)
 
-2. **Game Phase Detection** (+50-100 Elo)
+2. **ゲームフェーズ検出** (+50-100 Elo)
 
-   - Opening/Midgame/Endgame awareness
-   - Phase-specific strategies
+   - 序盤/中盤/終盤の認識
+   - フェーズ固有の戦略
 
-3. **Enhanced King Safety** (+30-50 Elo)
+3. **強化キング安全性** (+30-50 Elo)
 
-   - Escape square counting
-   - Enemy attacker detection
+   - 逃げ場所のカウント
+   - 敵攻撃駒の検出
 
-4. **Tactical Patterns** (+20-40 Elo)
+4. **戦術パターン** (+20-40 Elo)
 
-   - Passed pawn detection
-   - Bishop pair bonus
-   - Rooks on open files
+   - パスポーン検出
+   - ビショップペアボーナス
+   - オープンファイル上のルーク
 
-5. **Development Scoring** (+10-20 Elo)
-   - Opening piece development
+5. **駒組みスコアリング** (+10-20 Elo)
+   - 序盤の駒の展開
 
-#### ML Data Quality Improvements
+#### ML データ品質改善
 
-- **Data Augmentation**: Horizontal flip for symmetric boards
-- **Enhanced Labels**: material_diff, game_lengths, evaluations, critical_moments
-- **HDF5 Schema**: Extended with new metadata fields
-- **Compression**: gzip compression (~50% storage reduction)
+- **データ拡張**: 対称盤面の水平反転
+- **強化ラベル**: material_diff, game_lengths, evaluations, critical_moments
+- **HDF5 スキーマ**: 新しいメタデータフィールドで拡張
+- **圧縮**: gzip 圧縮 (~50% ストレージ削減)
 
-#### UI Enhancements
+#### UI 強化
 
-- **Replay Feature**: Scrollable kifu file selector
-- **Multiple Directories**: Scans both `kifu/` and `selfplay_results/`
-- **Metadata Display**: Board type, players, move count, timestamp
-- **New Fields**: Evaluator, model path, version info
+- **リプレイ機能**: スクロール可能な棋譜ファイルセレクター
+- **複数ディレクトリ**: `kifu/` と `selfplay_results/` の両方をスキャン
+- **メタデータ表示**: 盤面タイプ、プレイヤー、手数、タイムスタンプ
+- **新フィールド**: Evaluator、モデルパス、バージョン情報
 
-#### Documentation
+#### ドキュメント
 
-- Organized docs in `docs/` folder
-- Added comprehensive improvement guides
-- Created INDEX.md for navigation
+- `docs/` フォルダに整理
+- 包括的な改善ガイドを追加
+- ナビゲーション用の INDEX.md 作成
 
-**Files Changed**: 15+  
-**New Files**: 10+  
-**Build Time**: ~6s
+**変更ファイル**: 15+  
+**新規ファイル**: 10+  
+**ビルド時間**: ~6s
 
 ---
 
 ### 0.4.0 (2026-01-07)
 
-**Features**:
+**機能**:
 
-- ML Model Versioning with embedded metadata
-- Multi-Model Support (pluggable evaluators)
-- Updated to `ort` 2.0 API
+- 埋め込みメタデータ付き ML モデルバージョニング
+- マルチモデルサポート (プラグ可能な評価器)
+- `ort` 2.0 API に更新
 
 > [!NOTE]
-> ML models have independent versioning in ONNX metadata
+> ML モデルは ONNX メタデータに独立したバージョニングを持つ
 
 ---
 
 ### 0.3.2 (2026-01-06)
 
-**Fixes**:
+**修正**:
 
-- Critical PST index bug fix (40% → 50% win balance)
-- Thread pool optimization (6 threads on 8-core)
-- Reset ai_config.json to defaults
+- 重大な PST インデックスバグ修正 (40% → 50% 勝率バランス)
+- スレッドプール最適化 (8 コアで 6 スレッド)
+- ai_config.json をデフォルトにリセット
 
-**Tools**:
+**ツール**:
 
-- Added comprehensive analysis tools
-- Deep analysis script
-- Board visualization
+- 包括的な分析ツールを追加
+- 詳細分析スクリプト
+- 盤面可視化
 
 ---
 
 ### 0.3.1 (2026-01-05)
 
-**Features**:
+**機能**:
 
-- Self-play improvements
-- Analysis enhancements
-- Performance optimizations
+- Self-Play 改善
+- 分析機能強化
+- 性能最適化
 
 ---
 
 ### 0.3.0 (2026-01-04)
 
-**Features**:
+**機能**:
 
-- Sennichite detection (repetition)
-- AI balance improvements
-- Network play support
+- 千日手検出 (繰り返し)
+- AI バランス改善
+- ネットワークプレイサポート
 
 ---
 
 ### 0.2.0 (2026-01-03)
 
-**Features**:
+**機能**:
 
-- Chess piece implementation
-- Mixed board setups
-- Rule variability
+- チェス駒の実装
+- 混合盤面設定
+- ルールの可変性
 
 ---
 
 ### 0.1.0 (2026-01-02)
 
-**Initial Release**:
+**初期リリース**:
 
-- Basic Shogi implementation
-- TUI interface
-- Local play support
+- 基本将棋実装
+- TUI インターフェース
+- ローカルプレイサポート
 
 ---
 
-## ML Model Versioning
+## ML モデルのバージョニング
 
-**Separate from Application Version**
+**アプリケーションバージョンとは別**
 
-ML models follow their own versioning embedded in ONNX metadata:
+ML モデルは ONNX メタデータに埋め込まれた独自のバージョニングを持つ:
 
 ```
 models/
@@ -261,89 +261,89 @@ models/
 └── ...
 ```
 
-**Model Version Format**: `v{major}.{minor}.{patch}`
+**モデルバージョン形式**: `v{major}.{minor}.{patch}`
 
-**When to bump model version**:
+**モデルバージョン更新タイミング**:
 
-- **Patch**: Hyperparameter tuning, same architecture
-- **Minor**: Architecture changes, more training data
-- **Major**: Complete redesign
+- **Patch**: ハイパーパラメータ調整、同じアーキテクチャ
+- **Minor**: アーキテクチャ変更、より多くの訓練データ
+- **Major**: 完全な再設計
 
-See [docs/ML_USAGE.md](./ML_USAGE.md) for details.
-
----
-
-## Tips & Best Practices
-
-### Before Bumping
-
-1. **Test thoroughly**: Run `cargo build --release` and test your changes
-2. **Review changes**: Use `git diff` to see what changed
-3. **Update docs**: Document significant changes
-4. **Run tests**: `cargo test` if you have tests
-
-### During Bumping
-
-1. **Use dry-run**: Preview with `--dry-run` first
-2. **Choose correct level**: When in doubt, use lower level (patch over minor)
-3. **Write clear messages**: Explain what changed and why
-
-### After Bumping
-
-1. **Tag release**: `git tag v0.5.0`
-2. **Push tags**: `git push origin v0.5.0`
-3. **Update CHANGELOG**: Document in CHANGELOG.md (if exists)
-4. **Announce**: Update README or release notes
+詳細は [docs/ML_USAGE.md](./ML_USAGE.md) 参照。
 
 ---
 
-## Version Comparison
+## ヒントとベストプラクティス
 
-### Feature Matrix
+### 更新前
 
-| Feature           | v0.1.0 | v0.3.0 | v0.5.0 |
-| ----------------- | ------ | ------ | ------ |
-| Basic Shogi       | ✅     | ✅     | ✅     |
-| Chess Pieces      | ❌     | ✅     | ✅     |
-| Network Play      | ❌     | ✅     | ✅     |
-| ML Support        | ❌     | ✅     | ✅     |
-| Sennichite        | ❌     | ✅     | ✅     |
-| Enhanced Eval     | ❌     | ❌     | ✅     |
-| Replay UI         | ❌     | ❌     | ✅     |
-| Data Augmentation | ❌     | ❌     | ✅     |
+1. **徹底的にテスト**: `cargo build --release` を実行して変更をテスト
+2. **変更を確認**: `git diff` で何が変わったか確認
+3. **ドキュメント更新**: 重要な変更を文書化
+4. **テスト実行**: テストがあれば `cargo test`
 
-### Performance Comparison
+### 更新中
 
-| Version | Eval Strength | Build Time | Binary Size |
-| ------- | ------------- | ---------- | ----------- |
-| v0.1.0  | Baseline      | ~3s        | ~5MB        |
-| v0.3.0  | +100 Elo      | ~4s        | ~6MB        |
-| v0.5.0  | +360 Elo      | ~6s        | ~7MB        |
+1. **dry-run を使用**: まず `--dry-run` でプレビュー
+2. **正しいレベルを選択**: 迷ったら低いレベル (minor より patch)
+3. **明確なメッセージ**: 何が変わったか、なぜ変わったか説明
+
+### 更新後
+
+1. **リリースタグ**: `git tag v0.5.0`
+2. **タグをプッシュ**: `git push origin v0.5.0`
+3. **CHANGELOG 更新**: CHANGELOG.md に記録 (存在する場合)
+4. **アナウンス**: README やリリースノートを更新
 
 ---
 
-## Questions & Troubleshooting
+## バージョン比較
 
-### Multiple changes?
+### 機能マトリックス
 
-Use the highest applicable level:
+| 機能               | v0.1.0 | v0.3.0 | v0.5.0 |
+| ------------------ | ------ | ------ | ------ |
+| 基本将棋           | ✅     | ✅     | ✅     |
+| チェス駒           | ❌     | ✅     | ✅     |
+| ネットワークプレイ | ❌     | ✅     | ✅     |
+| ML サポート        | ❌     | ✅     | ✅     |
+| 千日手             | ❌     | ✅     | ✅     |
+| 強化評価           | ❌     | ❌     | ✅     |
+| リプレイ UI        | ❌     | ❌     | ✅     |
+| データ拡張         | ❌     | ❌     | ✅     |
 
-- Bug fix + new feature = **minor**
-- Several features = **minor**
-- Feature + breaking change = **major**
+### 性能比較
 
-### Not sure which level?
+| バージョン | 評価強度     | ビルド時間 | バイナリサイズ |
+| ---------- | ------------ | ---------- | -------------- |
+| v0.1.0     | ベースライン | ~3s        | ~5MB           |
+| v0.3.0     | +100 Elo     | ~4s        | ~6MB           |
+| v0.5.0     | +360 Elo     | ~6s        | ~7MB           |
 
-**Rule of thumb**:
+---
 
-- Changed behavior? → patch
-- New feature? → minor
-- Breaking change? → major
+## Q&A とトラブルシューティング
 
-### Forgot to bump?
+### 複数の変更がある場合は?
+
+最も高い適用レベルを使用:
+
+- バグ修正 + 新機能 = **minor**
+- 複数の機能 = **minor**
+- 機能 + 破壊的変更 = **major**
+
+### どのレベルか分からない場合は?
+
+**経験則**:
+
+- 動作が変わった? → patch
+- 新機能? → minor
+- 破壊的変更? → major
+
+### 更新を忘れた場合は?
 
 ```bash
-# Bump now and amend last commit
+# 今更新して最後のコミットに修正
 python3 scripts/bump_version.py patch
 git add Cargo.toml
 git commit --amend --no-edit
@@ -351,14 +351,14 @@ git commit --amend --no-edit
 
 ---
 
-## Related Documentation
+## 関連ドキュメント
 
-- [ML Usage](./ML_USAGE.md) - ML model versioning
-- [Index](./INDEX.md) - Documentation overview
-- [Improvements](./improvements/) - Feature documentation
+- [ML 使用法](./ML_USAGE.md) - ML モデルバージョニング
+- [索引](./INDEX.md) - ドキュメント概要
+- [改善](./improvements/) - 機能ドキュメント
 
 ---
 
-**Last Updated**: 2026-01-07  
-**Current Version**: 0.5.0  
-**Next Planned**: 0.6.0 (planned features TBD)
+**最終更新**: 2026-01-07  
+**現在バージョン**: 0.5.0  
+**次の計画**: 0.6.0 (計画機能は未定)

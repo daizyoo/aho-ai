@@ -7,6 +7,8 @@ Makefile.toml
 selfplay_results/
 selfplay_kifu/
 config_backups/
+analysis_graphs/
+models/
 
 # Temporary and backup files
 *.tmp
