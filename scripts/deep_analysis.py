@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Deep analysis of ShogiOnly vs Fair board results
+Deep analysis of board results with flexible game type selection
 Provides statistical insights and hypothesis testing
 """
 
@@ -47,6 +47,9 @@ def chi_square_test(p1_wins, p2_wins, draws):
     # Expected values (assuming perfect balance)
     expected_wins = (p1_wins + p2_wins) / 2
     
+    if expected_wins == 0:
+        return 0, "N/A (no decisive games)"
+    
     # Chi-square statistic
     chi_square = ((p1_wins - expected_wins)**2 / expected_wins + 
                   (p2_wins - expected_wins)**2 / expected_wins)
@@ -65,24 +68,24 @@ def chi_square_test(p1_wins, p2_wins, draws):
     return chi_square, significance
 
 
-def analyze_board_comparison(shogi_data, fair_data):
-    """Compare ShogiOnly and Fair boards"""
+def analyze_board_comparison(name1, data1, name2, data2):
+    """Compare two game type results"""
     print(f"{Colors.BOLD}{Colors.CYAN}{'=' * 80}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Colors.CYAN}DEEP ANALYSIS: ShogiOnly vs Fair Board Comparison{Colors.RESET}")
+    print(f"{Colors.BOLD}{Colors.CYAN}DEEP ANALYSIS: {name1} vs {name2}{Colors.RESET}")
     print(f"{Colors.BOLD}{Colors.CYAN}{'=' * 80}{Colors.RESET}\n")
     
     # Basic stats
     print(f"{Colors.BOLD}{Colors.BLUE}1. SAMPLE SIZE COMPARISON{Colors.RESET}")
     print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
-    print(f"  ShogiOnly: {Colors.BOLD}{shogi_data['total_games']}{Colors.RESET} games")
-    print(f"  Fair:      {Colors.BOLD}{fair_data['total_games']}{Colors.RESET} games")
+    print(f"  {name1}: {Colors.BOLD}{data1['total_games']}{Colors.RESET} games")
+    print(f"  {name2}: {Colors.BOLD}{data2['total_games']}{Colors.RESET} games")
     print()
     
     # Win rate analysis
     print(f"{Colors.BOLD}{Colors.BLUE}2. WIN RATE ANALYSIS{Colors.RESET}")
     print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
     
-    for name, data in [("ShogiOnly", shogi_data), ("Fair", fair_data)]:
+    for name, data in [(name1, data1), (name2, data2)]:
         p1_rate = data['p1_win_rate']
         p2_rate = data['p2_win_rate']
         draw_rate = data['draw_rate']
@@ -108,121 +111,92 @@ def analyze_board_comparison(shogi_data, fair_data):
     print(f"{Colors.BOLD}{Colors.BLUE}3. IMBALANCE MAGNITUDE{Colors.RESET}")
     print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
     
-    shogi_diff = abs(shogi_data['p1_win_rate'] - shogi_data['p2_win_rate'])
-    fair_diff = abs(fair_data['p1_win_rate'] - fair_data['p2_win_rate'])
+    diff1 = abs(data1['p1_win_rate'] - data1['p2_win_rate'])
+    diff2 = abs(data2['p1_win_rate'] - data2['p2_win_rate'])
     
-    print(f"  ShogiOnly: {Colors.RED if shogi_diff > 20 else Colors.YELLOW}{shogi_diff:.1f}%{Colors.RESET} difference")
-    print(f"  Fair:      {Colors.RED if fair_diff > 20 else Colors.YELLOW}{fair_diff:.1f}%{Colors.RESET} difference")
+    print(f"  {name1}: {Colors.RED if diff1 > 20 else Colors.YELLOW}{diff1:.1f}%{Colors.RESET} difference")
+    print(f"  {name2}: {Colors.RED if diff2 > 20 else Colors.YELLOW}{diff2:.1f}%{Colors.RESET} difference")
     print()
     
     # Direction analysis
     print(f"{Colors.BOLD}{Colors.BLUE}4. DIRECTION OF BIAS{Colors.RESET}")
     print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
     
-    shogi_winner = "Player 1" if shogi_data['p1_win_rate'] > shogi_data['p2_win_rate'] else "Player 2"
-    fair_winner = "Player 1" if fair_data['p1_win_rate'] > fair_data['p2_win_rate'] else "Player 2"
+    winner1 = "Player 1" if data1['p1_win_rate'] > data1['p2_win_rate'] else "Player 2"
+    winner2 = "Player 1" if data2['p1_win_rate'] > data2['p2_win_rate'] else "Player 2"
     
-    print(f"  ShogiOnly favors: {Colors.BOLD}{Colors.GREEN if shogi_winner == 'Player 1' else Colors.RED}{shogi_winner}{Colors.RESET}")
-    print(f"  Fair favors:      {Colors.BOLD}{Colors.GREEN if fair_winner == 'Player 1' else Colors.RED}{fair_winner}{Colors.RESET}")
+    print(f"  {name1} favors: {Colors.BOLD}{Colors.GREEN if winner1 == 'Player 1' else Colors.RED}{winner1}{Colors.RESET}")
+    print(f"  {name2} favors: {Colors.BOLD}{Colors.GREEN if winner2 == 'Player 1' else Colors.RED}{winner2}{Colors.RESET}")
     
-    if shogi_winner != fair_winner:
-        print(f"\n  {Colors.BOLD}{Colors.YELLOW}⚠ CRITICAL: Boards favor OPPOSITE players!{Colors.RESET}")
-        print(f"  {Colors.YELLOW}This suggests board-specific structural imbalance.{Colors.RESET}")
+    if winner1 != winner2:
+        print(f"\n  {Colors.BOLD}{Colors.YELLOW}⚠ CRITICAL: Game types favor OPPOSITE players!{Colors.RESET}")
+        print(f"  {Colors.YELLOW}This suggests setting-specific structural imbalance.{Colors.RESET}")
+    else:
+        print(f"\n  {Colors.BOLD}{Colors.GREEN}✓ Both favor the same player{Colors.RESET}")
+        print(f"  {Colors.GREEN}This suggests consistent evaluation or search bias.{Colors.RESET}")
     print()
     
     # Game length analysis
     print(f"{Colors.BOLD}{Colors.BLUE}5. GAME COMPLEXITY{Colors.RESET}")
     print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
     
-    shogi_moves = shogi_data['avg_moves']
-    fair_moves = fair_data['avg_moves']
-    moves_diff_pct = ((shogi_moves - fair_moves) / fair_moves) * 100
+    moves1 = data1['avg_moves']
+    moves2 = data2['avg_moves']
+    moves_diff_pct = ((moves1 - moves2) / moves2) * 100 if moves2 > 0 else 0
     
-    print(f"  ShogiOnly avg moves: {Colors.MAGENTA}{shogi_moves:.1f}{Colors.RESET}")
-    print(f"  Fair avg moves:      {Colors.MAGENTA}{fair_moves:.1f}{Colors.RESET}")
-    print(f"  Difference:          {Colors.BOLD}{moves_diff_pct:+.1f}%{Colors.RESET}")
+    print(f"  {name1} avg moves: {Colors.MAGENTA}{moves1:.1f}{Colors.RESET}")
+    print(f"  {name2} avg moves: {Colors.MAGENTA}{moves2:.1f}{Colors.RESET}")
+    print(f"  Difference:       {Colors.BOLD}{moves_diff_pct:+.1f}%{Colors.RESET}")
     
-    shogi_time = shogi_data['avg_time_s']
-    fair_time = fair_data['avg_time_s']
-    time_diff_pct = ((shogi_time - fair_time) / fair_time) * 100
+    time1 = data1['avg_time_s']
+    time2 = data2['avg_time_s']
+    time_diff_pct = ((time1 - time2) / time2) * 100 if time2 > 0 else 0
     
-    print(f"\n  ShogiOnly avg time:  {Colors.MAGENTA}{shogi_time:.1f}s{Colors.RESET}")
-    print(f"  Fair avg time:       {Colors.MAGENTA}{fair_time:.1f}s{Colors.RESET}")
-    print(f"  Difference:          {Colors.BOLD}{time_diff_pct:+.1f}%{Colors.RESET}")
+    print(f"\n  {name1} avg time:  {Colors.MAGENTA}{time1:.1f}s{Colors.RESET}")
+    print(f"  {name2} avg time:  {Colors.MAGENTA}{time2:.1f}s{Colors.RESET}")
+    print(f"  Difference:        {Colors.BOLD}{time_diff_pct:+.1f}%{Colors.RESET}")
     print()
     
     # Hypotheses
     print(f"{Colors.BOLD}{Colors.BLUE}6. POTENTIAL ROOT CAUSES{Colors.RESET}")
     print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
     
-    print(f"\n  {Colors.BOLD}Hypothesis 1: Initial Board Asymmetry{Colors.RESET}")
-    print(f"    • ShogiOnly and Fair boards have different initial setups")
-    print(f"    • Each setup has inherent structural advantages for one player")
-    print(f"    • Evidence: {Colors.YELLOW}Opposite bias directions{Colors.RESET}")
+    print(f"\n  {Colors.BOLD}Hypothesis 1: Initial Position Asymmetry{Colors.RESET}")
+    print(f"    • Different board setups have inherent advantages")
+    print(f"    • Each setup favors different piece configurations")
+    print(f"    • Evidence: {Colors.YELLOW}Opposite bias directions{Colors.RESET}" if winner1 != winner2 else f"    • Evidence: {Colors.GREEN}Consistent bias{Colors.RESET}")
     
     print(f"\n  {Colors.BOLD}Hypothesis 2: Evaluation Function Bias{Colors.RESET}")
-    print(f"    • AI evaluation may favor certain piece configurations")
-    print(f"    • Different boards expose different evaluation biases")
-    print(f"    • Evidence: {Colors.YELLOW}Consistent bias within each board type{Colors.RESET}")
+    print(f"    • AI evaluation may favor certain patterns")
+    print(f"    • Different boards expose different biases")
+    print(f"    • Evidence: {Colors.YELLOW}Consistent bias within each type{Colors.RESET}")
     
     print(f"\n  {Colors.BOLD}Hypothesis 3: Search Depth Interaction{Colors.RESET}")
-    print(f"    • Longer games (ShogiOnly) may amplify small biases")
-    print(f"    • More complex positions → more opportunities for bias")
-    print(f"    • Evidence: {Colors.YELLOW}ShogiOnly has {moves_diff_pct:+.1f}% more moves{Colors.RESET}")
-    
-    print()
-    
-    # Recommendations
-    print(f"{Colors.BOLD}{Colors.BLUE}7. RECOMMENDED INVESTIGATIONS{Colors.RESET}")
-    print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
-    
-    print(f"\n  {Colors.GREEN}Priority 1: Initial Position Analysis{Colors.RESET}")
-    print(f"    → Examine the exact piece placement in both board setups")
-    print(f"    → Look for asymmetries in material, mobility, or king safety")
-    
-    print(f"\n  {Colors.GREEN}Priority 2: Evaluation Function Audit{Colors.RESET}")
-    print(f"    → Test evaluation scores from both player perspectives")
-    print(f"    → Check for coordinate-based biases (e.g., file/rank preferences)")
-    
-    print(f"\n  {Colors.GREEN}Priority 3: Move Distribution Analysis{Colors.RESET}")
-    print(f"    → Analyze which pieces move most frequently for each player")
-    print(f"    → Check if certain strategies dominate for winning players")
-    
-    print(f"\n  {Colors.GREEN}Priority 4: Increase Sample Size{Colors.RESET}")
-    print(f"    → Run 100+ games for each board type")
-    print(f"    → Current ShogiOnly sample (n={shogi_data['total_games']}) is moderate")
-    print(f"    → Current Fair sample (n={fair_data['total_games']}) is small")
+    print(f"    • Longer games may amplify small biases")
+    print(f"    • More complex positions → more bias opportunities")
+    print(f"    • Evidence: {Colors.YELLOW}{abs(moves_diff_pct):.1f}% move difference{Colors.RESET}")
     
     print()
     
     # Statistical power
-    print(f"{Colors.BOLD}{Colors.BLUE}8. STATISTICAL CONFIDENCE{Colors.RESET}")
+    print(f"{Colors.BOLD}{Colors.BLUE}7. STATISTICAL CONFIDENCE{Colors.RESET}")
     print(f"{Colors.CYAN}{'─' * 80}{Colors.RESET}")
     
-    # For ShogiOnly
-    shogi_total = shogi_data['total_games']
-    shogi_decisive = shogi_data['p1_wins'] + shogi_data['p2_wins']
-    if shogi_decisive > 0:
-        shogi_observed_ratio = max(shogi_data['p1_wins'], shogi_data['p2_wins']) / shogi_decisive
-        # Margin of error for 95% CI
-        shogi_moe = 1.96 * math.sqrt(0.5 * 0.5 / shogi_decisive) * 100
+    for name, data in [(name1, data1), (name2, data2)]:
+        total = data['total_games']
+        decisive = data['p1_wins'] + data['p2_wins']
         
-        print(f"\n  {Colors.BOLD}ShogiOnly:{Colors.RESET}")
-        print(f"    Observed win ratio: {shogi_observed_ratio:.1%}")
-        print(f"    Margin of error (95% CI): ±{shogi_moe:.1f}%")
-        print(f"    Confidence: {Colors.GREEN}High{Colors.RESET} (n={shogi_total})")
-    
-    # For Fair
-    fair_total = fair_data['total_games']
-    fair_decisive = fair_data['p1_wins'] + fair_data['p2_wins']
-    if fair_decisive > 0:
-        fair_observed_ratio = max(fair_data['p1_wins'], fair_data['p2_wins']) / fair_decisive
-        fair_moe = 1.96 * math.sqrt(0.5 * 0.5 / fair_decisive) * 100
-        
-        print(f"\n  {Colors.BOLD}Fair:{Colors.RESET}")
-        print(f"    Observed win ratio: {fair_observed_ratio:.1%}")
-        print(f"    Margin of error (95% CI): ±{fair_moe:.1f}%")
-        print(f"    Confidence: {Colors.YELLOW}Moderate{Colors.RESET} (n={fair_total})")
+        if decisive > 0:
+            observed_ratio = max(data['p1_wins'], data['p2_wins']) / decisive
+            moe = 1.96 * math.sqrt(0.5 * 0.5 / decisive) * 100
+            
+            confidence_level = "High" if total >= 50 else "Moderate" if total >= 20 else "Low"
+            confidence_color = Colors.GREEN if total >= 50 else Colors.YELLOW if total >= 20 else Colors.RED
+            
+            print(f"\n  {Colors.BOLD}{name}:{Colors.RESET}")
+            print(f"    Observed win ratio: {observed_ratio:.1%}")
+            print(f"    Margin of error (95% CI): ±{moe:.1f}%")
+            print(f"    Confidence: {confidence_color}{confidence_level}{Colors.RESET} (n={total})")
     
     print()
     print(f"{Colors.CYAN}{'=' * 80}{Colors.RESET}\n")
@@ -234,27 +208,64 @@ def main():
     
     if not results_file.exists():
         print(f"{Colors.RED}Error: {results_file} not found{Colors.RESET}")
-        print(f"{Colors.YELLOW}Run analyze_results.py first to generate the data{Colors.RESET}")
+        print(f"{Colors.YELLOW}Run 'python scripts/analyze_results.py' first to generate the data{Colors.RESET}")
         return
     
     with open(results_file) as f:
         data = json.load(f)
     
-    # Extract ShogiOnly and Fair data
-    shogi_key = "ShogiOnly (Light vs Light)"
-    fair_key = "Fair (Light vs Light)"
-    
-    if shogi_key not in data or fair_key not in data:
-        print(f"{Colors.RED}Error: Missing required game types{Colors.RESET}")
-        print(f"Expected: {shogi_key} and {fair_key}")
-        print(f"Found: {list(data.keys())}")
+    if len(data) == 0:
+        print(f"{Colors.RED}Error: No game types found in analyze_results.json{Colors.RESET}")
         return
     
-    shogi_data = data[shogi_key]
-    fair_data = data[fair_key]
+    if len(data) < 2:
+        print(f"{Colors.YELLOW}Warning: Only one game type found{Colors.RESET}")
+        print(f"Found: {list(data.keys())[0]}")
+        print(f"\n{Colors.CYAN}Need at least 2 game types for comparison.{Colors.RESET}")
+        print(f"{Colors.CYAN}Run more selfplay games with different settings.{Colors.RESET}")
+        return
+    
+    # Display available game types
+    game_types = list(data.keys())
+    print(f"{Colors.BOLD}{Colors.CYAN}{'=' * 80}{Colors.RESET}")
+    print(f"{Colors.BOLD}{Colors.CYAN}Available Game Types for Comparison{Colors.RESET}")
+    print(f"{Colors.BOLD}{Colors.CYAN}{'=' * 80}{Colors.RESET}\n")
+    
+    for i, gt in enumerate(game_types, 1):
+        gt_data = data[gt]
+        print(f"  {Colors.BOLD}{i}.{Colors.RESET} {gt}")
+        print(f"      Games: {gt_data['total_games']} | "
+              f"P1: {gt_data['p1_win_rate']:.1f}% | "
+              f"P2: {gt_data['p2_win_rate']:.1f}% | "
+              f"Draws: {gt_data['draw_rate']:.1f}%")
+        print()
+    
+    # Auto-select first two, or let user choose
+    if len(game_types) == 2:
+        idx1, idx2 = 0, 1
+        print(f"{Colors.GREEN}Auto-selecting both game types for comparison.{Colors.RESET}\n")
+    else:
+        print(f"{Colors.YELLOW}Enter two numbers to compare (e.g., '1 2'), or press Enter for first two:{Colors.RESET}")
+        try:
+            user_input = input("> ").strip()
+            if user_input:
+                choices = [int(x) - 1 for x in user_input.split()]
+                if len(choices) != 2 or not all(0 <= c < len(game_types) for c in choices):
+                    print(f"{Colors.RED}Invalid selection. Using first two.{Colors.RESET}")
+                    idx1, idx2 = 0, 1
+                else:
+                    idx1, idx2 = choices
+            else:
+                idx1, idx2 = 0, 1
+        except (ValueError, KeyboardInterrupt):
+            print(f"{Colors.RED}Invalid input. Using first two.{Colors.RESET}")
+            idx1, idx2 = 0, 1
+        print()
     
     # Perform deep analysis
-    analyze_board_comparison(shogi_data, fair_data)
+    name1 = game_types[idx1]
+    name2 = game_types[idx2]
+    analyze_board_comparison(name1, data[name1], name2, data[name2])
 
 
 if __name__ == "__main__":

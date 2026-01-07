@@ -1,19 +1,36 @@
 {
-  "ChessOnly (Strong vs Strong)": {
-    "total_games": 20,
-    "p1_wins": 6,
-    "p2_wins": 9,
-    "draws": 5,
-    "p1_win_rate": 30.0,
-    "p2_win_rate": 45.0,
-    "draw_rate": 25.0,
-    "avg_moves": 182.05,
-    "avg_time_s": 397.93640000000005,
+  "ShogiOnly (Light vs Strong)": {
+    "total_games": 4,
+    "p1_wins": 0,
+    "p2_wins": 4,
+    "draws": 0,
+    "p1_win_rate": 0.0,
+    "p2_win_rate": 100.0,
+    "draw_rate": 0.0,
+    "avg_moves": 58.5,
+    "avg_time_s": 303.85,
     "source_files": [
-      "selfplay_results_20260106_235017.json",
-      "selfplay_results_20260107_012956.json"
+      "selfplay_results_20260107_214954.json"
     ],
-    "board_setup": "ChessOnly",
+    "board_setup": "ShogiOnly",
+    "ai1_strength": "Light",
+    "ai2_strength": "Strong"
+  },
+  "ShogiOnly (Strong vs Strong)": {
+    "total_games": 170,
+    "p1_wins": 85,
+    "p2_wins": 85,
+    "draws": 0,
+    "p1_win_rate": 50.0,
+    "p2_win_rate": 50.0,
+    "draw_rate": 0.0,
+    "avg_moves": 66.73529411764704,
+    "avg_time_s": 1062.0912941176473,
+    "source_files": [
+      "selfplay_results_20260107_095652.json",
+      "selfplay_results_20260107_173106.json"
+    ],
+    "board_setup": "ShogiOnly",
     "ai1_strength": "Strong",
     "ai2_strength": "Strong"
   },

@@ -54,29 +54,45 @@ Average Time:    29m 43s
 
 ### deep_analysis.py
 
-より詳細な戦略分析を実行します。
+Detailed comparison between two game types with statistical analysis.
 
-**使い方:**
+**Usage:**
 
 ```bash
 python scripts/deep_analysis.py
 ```
 
-**機能:**
+**Features:**
 
-- 駒の価値分析
-- ポジショナルアドバンテージの評価
-- 勝利パターンの特定
+- Auto-detects available game types from analyze_results.json
+- Interactive selection of which two types to compare
+- Statistical hypothesis testing (Chi-square)
+- Confidence intervals for win rates
+- Identifies potential root causes of imbalances
+- Provides detailed analysis of balance, complexity, and bias patterns
+
+**Requirements:**
+
+- Must run `analyze_results.py` first to generate data
+- Need at least 2 game types for comparison
 
 ### summary_report.py
 
-簡潔なサマリーレポートを生成します。
+Generates comprehensive summary report from all available game types.
 
-**使い方:**
+**Usage:**
 
 ```bash
 python scripts/summary_report.py
 ```
+
+**Features:**
+
+- Executive summary of all game types
+- Balance analysis across different settings
+- Game complexity comparison
+- Prioritized recommendations for further investigation
+- Works with any available game types (flexible)
 
 ## 可視化スクリプト
 
@@ -102,34 +118,37 @@ python scripts/visualize_boards.py
 
 ### visualize_thinking.py
 
-AI の思考データ(評価値、探索深さ、ノード数)をグラフ化します。
+AI's thinking data (evaluation values, search depth, node count) visualization.
 
-**使い方:**
+**Usage:**
 
 ```bash
-# 特定のkifuファイルを指定
-python scripts/visualize_thinking.py selfplay_kifu/Fair/game_0001.json
+# Specify a kifu file
+python scripts/visualize_thinking.py selfplay_kifu/ShogiOnly/game_0001.json
 
-# インタラクティブモード(ファイル選択)
+# Interactive mode (file selection)
 python scripts/visualize_thinking.py
 ```
 
-**機能:**
+**Features:**
 
-- 評価値の推移をプロット
-- 探索深さの変化を表示
-- 評価ノード数の可視化
-- グラフを`analysis_graphs/`に保存
+- **Enhanced evaluation graph** - Player-specific score tracking
+- **Checkmate detection** - Automatic normalization and marking
+- **Critical moments** - Highlights significant evaluation swings
+- **Statistics panel** - Comprehensive game metrics
+- Search depth and nodes evaluated visualization
+- Saves graphs to `analysis_graphs/` (200 DPI)
+- Supports new KifuData fields (evaluator, model info)
 
-**依存関係:**
+**Dependencies:**
 
 ```bash
-pip install matplotlib
+pip install matplotlib numpy
 ```
 
-**出力:**
+**Output:**
 
-- `analysis_graphs/{kifu_filename}_analysis.png`
+- `analysis_graphs/{kifu_filename}_enhanced.png`
 
 ## ML スクリプト
 
