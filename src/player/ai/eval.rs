@@ -65,7 +65,7 @@ const VAL_QUEEN: i32 = 1800; // Strongest sliding piece
 /// Returns the static material value of a piece kind.
 ///
 /// These values represent the inherent worth of a piece type, independent of its position.
-fn piece_val(k: PieceKind) -> i32 {
+pub fn piece_val(k: PieceKind) -> i32 {
     match k {
         PieceKind::S_Pawn | PieceKind::C_Pawn => VAL_PAWN,
         PieceKind::S_Lance => VAL_LANCE,

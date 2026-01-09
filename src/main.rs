@@ -22,18 +22,23 @@ async fn main() -> anyhow::Result<()> {
     // Check for CLI arguments first
     if args.len() >= 2 {
         let mode = args[1].as_str();
-        let addr = if args.len() >= 3 {
-            &args[2]
-        } else {
-            "127.0.0.1:8080"
-        };
 
         match mode {
             "server" => {
+                let addr = if args.len() >= 3 {
+                    &args[2]
+                } else {
+                    "127.0.0.1:8080"
+                };
                 crate::network::server::start_server(addr).await?;
                 return Ok(());
             }
             "client" => {
+                let addr = if args.len() >= 3 {
+                    &args[2]
+                } else {
+                    "127.0.0.1:8080"
+                };
                 terminal::enable_raw_mode()?;
                 execute!(io::stdout(), terminal::EnterAlternateScreen)?;
                 let res = run_client(addr).await;
@@ -45,6 +50,28 @@ async fn main() -> anyhow::Result<()> {
                 terminal::enable_raw_mode()?;
                 execute!(io::stdout(), terminal::EnterAlternateScreen)?;
                 let res = run_local().await;
+                execute!(io::stdout(), terminal::LeaveAlternateScreen)?;
+                terminal::disable_raw_mode()?;
+                return res;
+            }
+            "replay" => {
+                if args.len() < 3 {
+                    eprintln!("Usage: {} replay <kifu_file_path>", args[0]);
+                    eprintln!(
+                        "Example: {} replay selfplay_kifu/ShogiOnly/20260108_124038/game_0034.json",
+                        args[0]
+                    );
+                    return Ok(());
+                }
+                let kifu_path = std::path::Path::new(&args[2]);
+                if !kifu_path.exists() {
+                    eprintln!("Error: File not found: {}", kifu_path.display());
+                    return Ok(());
+                }
+
+                terminal::enable_raw_mode()?;
+                execute!(io::stdout(), terminal::EnterAlternateScreen)?;
+                let res = run_replay_file(kifu_path);
                 execute!(io::stdout(), terminal::LeaveAlternateScreen)?;
                 terminal::disable_raw_mode()?;
                 return res;
@@ -250,7 +277,12 @@ async fn run_local() -> anyhow::Result<()> {
         use crate::ui::kifu_selector::KifuSelector;
         use std::path::PathBuf;
 
-        let dirs = vec![PathBuf::from("kifu"), PathBuf::from("selfplay_results")];
+        // Scan multiple directories including selfplay_kifu
+        let dirs = vec![
+            PathBuf::from("kifu"),
+            PathBuf::from("selfplay_results"),
+            PathBuf::from("selfplay_kifu"),
+        ];
 
         let mut selector = KifuSelector::scan_directories(&dirs)?;
 
@@ -412,7 +444,7 @@ async fn run_selfplay() -> anyhow::Result<()> {
     print!("4. Chess Only\r\n");
     print!("5. Fair (Symmetric Mixed)\r\n");
     print!("6. Reversed Fair\r\n");
-    print!("Select (default: 5): ");
+    print!("Select (default: 3): "); // Changed default from 5 to 3
 
     let board_setup = loop {
         if event::poll(Duration::from_millis(100))? {
@@ -426,7 +458,8 @@ async fn run_selfplay() -> anyhow::Result<()> {
                         print!("2\r\n");
                         break crate::selfplay::BoardSetupType::ReversedMixed;
                     }
-                    KeyCode::Char('3') => {
+                    KeyCode::Char('3') | KeyCode::Enter => {
+                        // Changed: Enter now selects ShogiOnly
                         print!("3\r\n");
                         break crate::selfplay::BoardSetupType::ShogiOnly;
                     }
@@ -434,13 +467,38 @@ async fn run_selfplay() -> anyhow::Result<()> {
                         print!("4\r\n");
                         break crate::selfplay::BoardSetupType::ChessOnly;
                     }
-                    KeyCode::Char('5') | KeyCode::Enter => {
+                    KeyCode::Char('5') => {
+                        // Removed KeyCode::Enter from here
                         print!("5\r\n");
                         break crate::selfplay::BoardSetupType::Fair;
                     }
                     KeyCode::Char('6') => {
                         print!("6\r\n");
                         break crate::selfplay::BoardSetupType::ReversedFair;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    };
+
+    // Execution Mode Selection
+    print!("\r\nExecution Mode:\r\n");
+    print!("1. Parallel (Multi-threaded)\r\n");
+    print!("2. Sequential (Single-threaded)\r\n");
+    print!("Select (default: 1): ");
+
+    let use_parallel = loop {
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('1') | KeyCode::Enter => {
+                        print!("1\r\n");
+                        break true;
+                    }
+                    KeyCode::Char('2') => {
+                        print!("2\r\n");
+                        break false;
                     }
                     _ => {}
                 }
@@ -461,11 +519,11 @@ async fn run_selfplay() -> anyhow::Result<()> {
     // Run self-play
     let config = crate::selfplay::SelfPlayConfig {
         num_games,
+        board_setup,
         ai1_strength,
         ai2_strength,
-        board_setup,
+        use_parallel, // Use the selected mode
         save_kifus: true,
-        use_parallel: true, // Default to parallel
         update_interval_moves: 1,
         model_path: model_path.clone(),
     };
@@ -544,5 +602,11 @@ async fn run_selfplay() -> anyhow::Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn run_replay_file(kifu_path: &std::path::Path) -> anyhow::Result<()> {
+    let mut viewer = crate::game::replay::ReplayViewer::from_kifu_path(kifu_path)?;
+    viewer.run()?;
     Ok(())
 }

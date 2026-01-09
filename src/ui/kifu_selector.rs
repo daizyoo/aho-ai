@@ -36,7 +36,7 @@ pub struct KifuSelector {
 }
 
 impl KifuSelector {
-    /// Scan directories for kifu files
+    /// Scan directories for kifu files (recursively)
     pub fn scan_directories(dirs: &[PathBuf]) -> Result<Self> {
         let mut files = Vec::new();
 
@@ -45,17 +45,8 @@ impl KifuSelector {
                 continue;
             }
 
-            // Scan for .json files
-            for entry in fs::read_dir(dir)? {
-                let entry = entry?;
-                let path = entry.path();
-
-                if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                    if let Ok(info) = Self::extract_metadata(&path) {
-                        files.push(info);
-                    }
-                }
-            }
+            // Recursively scan for .json files
+            Self::scan_directory_recursive(dir, &mut files)?;
         }
 
         // Sort by timestamp (newest first)
@@ -65,8 +56,105 @@ impl KifuSelector {
             files,
             selected_index: 0,
             scroll_offset: 0,
-            visible_rows: 10,
+            visible_rows: 20,  // Increased from 10 to 20
         })
+    }
+
+    /// Try to extract timestamp from filename (e.g., "selfplay_results_20260107_214954.json")
+    fn extract_timestamp_from_filename(filename: &str) -> Option<String> {
+        if !filename.contains("_") {
+            return None;
+        }
+
+        let parts: Vec<&str> = filename.split('_').collect();
+        if parts.len() < 3 {
+            return None;
+        }
+
+        let date_str = parts[parts.len() - 2];
+        let time_str = parts[parts.len() - 1].trim_end_matches(".json");
+
+        // Format: "20260107" -> "2026-01-07", "214954" -> "21:49:54"
+        if date_str.len() == 8 && time_str.len() == 6 {
+            Some(format!(
+                "{}-{}-{} {}:{}:{}",
+                &date_str[0..4],
+                &date_str[4..6],
+                &date_str[6..8],
+                &time_str[0..2],
+                &time_str[2..4],
+                &time_str[4..6]
+            ))
+        } else if date_str.len() == 8 {
+            // Date only
+            Some(format!(
+                "{}-{}-{}",
+                &date_str[0..4],
+                &date_str[4..6],
+                &date_str[6..8]
+            ))
+        } else {
+            Some(format!("{} {}", date_str, time_str))
+        }
+    }
+
+    /// Try to extract timestamp from parent directory path (e.g., "selfplay_kifu/ShogiOnly/20260107_214954/")
+    fn extract_timestamp_from_path(path: &Path) -> Option<String> {
+        // Check parent directory for timestamp pattern
+        if let Some(parent) = path.parent() {
+            if let Some(dir_name) = parent.file_name().and_then(|n| n.to_str()) {
+                // Try to extract from directory name
+                if let Some(ts) = Self::extract_timestamp_from_filename(dir_name) {
+                    return Some(ts);
+                }
+
+                // Check if it's just a date (YYYYMMDD)
+                if dir_name.len() == 8 && dir_name.chars().all(|c| c.is_ascii_digit()) {
+                    return Some(format!(
+                        "{}-{}-{}",
+                        &dir_name[0..4],
+                        &dir_name[4..6],
+                        &dir_name[6..8]
+                    ));
+                }
+
+                // Check if it contains underscores (YYYYMMDD_HHMMSS)
+                if dir_name.contains('_') {
+                    let parts: Vec<&str> = dir_name.split('_').collect();
+                    for part in parts {
+                        if part.len() == 8 && part.chars().all(|c| c.is_ascii_digit()) {
+                            // Found date part
+                            return Some(format!(
+                                "{}-{}-{}",
+                                &part[0..4],
+                                &part[4..6],
+                                &part[6..8]
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Recursively scan a directory for JSON kifu files
+    fn scan_directory_recursive(dir: &Path, files: &mut Vec<KifuFileInfo>) -> Result<()> {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            if path.is_dir() {
+                // Recursively scan subdirectories
+                Self::scan_directory_recursive(&path, files)?;
+            } else if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                // Extract metadata from JSON files
+                if let Ok(info) = Self::extract_metadata(&path) {
+                    files.push(info);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Extract metadata without loading full moves
@@ -85,11 +173,23 @@ impl KifuSelector {
             // Extract date/time from filename
             let parts: Vec<&str> = filename.split('_').collect();
             if parts.len() >= 3 {
-                format!(
-                    "{} {}",
-                    parts[parts.len() - 2],
-                    parts[parts.len() - 1].trim_end_matches(".json")
-                )
+                let date_str = parts[parts.len() - 2];
+                let time_str = parts[parts.len() - 1].trim_end_matches(".json");
+
+                // Format: "20260107" -> "2026-01-07", "214954" -> "21:49:54"
+                if date_str.len() == 8 && time_str.len() == 6 {
+                    format!(
+                        "{}-{}-{} {}:{}:{}",
+                        &date_str[0..4],
+                        &date_str[4..6],
+                        &date_str[6..8],
+                        &time_str[0..2],
+                        &time_str[2..4],
+                        &time_str[4..6]
+                    )
+                } else {
+                    format!("{} {}", date_str, time_str)
+                }
             } else {
                 "unknown".to_string()
             }
@@ -116,18 +216,19 @@ impl KifuSelector {
             crossterm::cursor::MoveTo(0, 0)
         )?;
 
-        println!("╔══════════════════════════════════════════════════════════════════╗\r");
-        println!("║                   Kifu Replay - Select File                       ║\r");
-        println!("╠══════════════════════════════════════════════════════════════════╣\r");
-        println!("║                                                                    ║\r");
+        println!("╔══════════════════════════════════════════════════════════════════════════════════════════╗\r");
+        println!("║                              Kifu Replay - Select File                                     ║\r");
+        println!("╠══════════════════════════════════════════════════════════════════════════════════════════╣\r");
+        println!("║                                                                                            ║\r");
 
         if self.files.is_empty() {
-            println!("║  No kifu files found in:                                          ║\r");
-            println!("║    - kifu/                                                        ║\r");
-            println!("║    - selfplay_results/                                            ║\r");
-            println!("║                                                                    ║\r");
-            println!("║  Generate some games first!                                       ║\r");
-            println!("║                                                                    ║\r");
+            println!("║  No kifu files found in:                                                               ║\r");
+            println!("║    - kifu/                                                                             ║\r");
+            println!("║    - selfplay_results/                                                                 ║\r");
+            println!("║    - selfplay_kifu/                                                                    ║\r");
+            println!("║                                                                                            ║\r");
+            println!("║  Generate some games first!                                                            ║\r");
+            println!("║                                                                                            ║\r");
         } else {
             // Calculate visible range
             let start = self.scroll_offset;
@@ -137,41 +238,41 @@ impl KifuSelector {
                 let file = &self.files[i];
                 let cursor = if i == self.selected_index { "▶" } else { " " };
 
-                // Format: "▶ 20260107 214954 | ShogiOnly | P1 vs P2 | (64 moves)"
+                // Format: "▶ 2026-01-07 21:49:54 | ... "
                 let display = format!(
-                    "{} {} | {:12} | {} vs {} ({} moves)",
+                    "{} {} | {} | {} vs {} ({} moves)",
                     cursor,
                     file.timestamp,
-                    file.board_setup,
-                    truncate(&file.player1, 10),
-                    truncate(&file.player2, 10),
+                    truncate(&file.board_setup, 15),
+                    truncate(&file.player1, 12),
+                    truncate(&file.player2, 12),
                     file.move_count
                 );
 
-                println!("║  {:<66} ║\r", truncate(&display, 66));
+                println!("║  {:<90} ║\r", truncate(&display, 90));
             }
 
             // Fill remaining visible rows
             for _ in (end - start)..self.visible_rows {
                 println!(
-                    "║                                                                    ║\r"
+                    "║                                                                                            ║\r"
                 );
             }
         }
 
-        println!("║                                                                    ║\r");
-        println!("╠══════════════════════════════════════════════════════════════════╣\r");
+        println!("║                                                                                            ║\r");
+        println!("╠══════════════════════════════════════════════════════════════════════════════════════════╣\r");
 
         if self.files.is_empty() {
-            println!("║  [q] Back to Main Menu                                            ║\r");
+            println!("║  [q] Back to Main Menu                                                                     ║\r");
         } else {
             println!(
-                "║  {} files | [↑/↓] Navigate | [Enter] Select | [q] Back          ║\r",
+                "║  {} files | [↑/↓] Navigate | [Enter] Select | [q] Back                                  ║\r",
                 self.files.len()
             );
         }
 
-        println!("╚══════════════════════════════════════════════════════════════════╝\r");
+        println!("╚══════════════════════════════════════════════════════════════════════════════════════════╝\r");
 
         Ok(())
     }
@@ -223,19 +324,38 @@ impl KifuSelector {
             self.render()?;
 
             match self.handle_input() {
-                Ok(Some(path)) => return Ok(Some(path)),
-                Ok(None) => return Ok(None),
+                Ok(Some(path)) => {
+                    // Clear screen before returning
+                    execute!(
+                        std::io::stdout(),
+                        terminal::Clear(terminal::ClearType::All),
+                        crossterm::cursor::MoveTo(0, 0)
+                    )?;
+                    return Ok(Some(path));
+                }
+                Ok(None) => {
+                    // Clear screen before returning
+                    execute!(
+                        std::io::stdout(),
+                        terminal::Clear(terminal::ClearType::All),
+                        crossterm::cursor::MoveTo(0, 0)
+                    )?;
+                    return Ok(None);
+                }
                 Err(_) => continue, // "Continue" error means keep looping
             }
         }
     }
 }
 
-/// Truncate string to max length
+/// Truncate string to max length (respects UTF-8 character boundaries)
 fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
+    let char_count: usize = s.chars().count();
+    if char_count <= max_len {
         s.to_string()
     } else {
-        format!("{}…", &s[..max_len - 1])
+        // Take max_len - 1 characters and append ellipsis
+        let truncated: String = s.chars().take(max_len.saturating_sub(1)).collect();
+        format!("{}…", truncated)
     }
 }

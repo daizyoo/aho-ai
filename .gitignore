@@ -5,7 +5,7 @@ Makefile.toml
 
 # Self-play results (regeneratable)
 selfplay_results/
-selfplay_kifu/
+# selfplay_kifu/
 config_backups/
 analysis_graphs/
 models/

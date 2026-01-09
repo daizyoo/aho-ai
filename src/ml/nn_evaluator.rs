@@ -30,7 +30,25 @@ impl NNEvaluator {
     }
 
     fn load_internal(model_path: &str, silent: bool) -> Result<Self, Box<dyn std::error::Error>> {
-        let session = Session::builder()?.commit_from_file(model_path)?;
+        let mut builder = Session::builder()?;
+
+        // Enable DirectML for GPU acceleration (AMD/NVIDIA/Intel on Windows)
+        #[cfg(target_os = "windows")]
+        {
+            if let Err(e) =
+                builder.with_execution_providers([ort::ExecutionProviderDispatch::DirectML(
+                    Default::default(),
+                )])
+            {
+                if !silent {
+                    eprintln!("[ML] Warning: DirectML not available, using CPU: {}\r", e);
+                }
+            } else if !silent {
+                eprintln!("[ML] GPU acceleration enabled (DirectML)\r");
+            }
+        }
+
+        let session = builder.commit_from_file(model_path)?;
 
         // Clean up name for display (remove models/ prefix and .onnx / /model suffix)
         let name_trimmed = model_path

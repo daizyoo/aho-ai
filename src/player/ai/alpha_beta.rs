@@ -181,14 +181,19 @@ impl AlphaBetaAI {
         let hash = ZobristHasher::compute_hash(board, current_player);
 
         // Repetition Check (Sennichite)
-        // If this position has appeared 3 times before (total 4), it's a draw.
-        // board.history includes the current hash if this is a leaf/node we just moved to?
-        // Wait, apply_move adds hash to history. So board.history ALREADY contains 'hash'.
-        // So we count how many times 'hash' is in 'board.history'.
-        // If count >= 4, return 0.
+        // Count how many times this position appeared in history
         let rep_count = board.history.iter().filter(|&&h| h == hash).count();
+
         if rep_count >= 4 {
-            return 0; // Draw score
+            // 4-fold repetition: Return draw score (0)
+            // The game loop will handle this as a loss for the player who caused it
+            return 0;
+        }
+
+        // For 3-fold repetition, apply small penalty only at root (ply == 0)
+        // This gently discourages repetition without breaking search
+        if rep_count >= 3 && ply == 0 {
+            return -100; // Small penalty to prefer non-repetitive moves
         }
 
         // TT Lookup
@@ -251,6 +256,18 @@ impl AlphaBetaAI {
         let mut best_move = None;
 
         for (moves_searched, mv) in moves.iter().enumerate() {
+            // SEE Pruning: Skip obviously bad captures
+            // Only prune in non-PV nodes (moves_searched > 0) and when not in check
+            if !in_check && moves_searched > 0 && depth >= 2 {
+                let see_value =
+                    crate::player::ai::see::static_exchange_eval(board, mv, current_player);
+                // If we lose more than a pawn (>150) in the exchange, skip this move
+                // This is a conservative heuristic - adjust threshold as needed
+                if see_value < -150 {
+                    continue; // Prune this move
+                }
+            }
+
             let next_board = apply_move(board, mv, current_player);
             let mut score;
 

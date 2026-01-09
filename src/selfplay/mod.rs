@@ -143,6 +143,8 @@ pub struct GameExecutionResult {
     pub position_evaluations: Vec<i32>,
     /// Move indices where there were large evaluation swings (>2000 centipawns)
     pub critical_moments: Vec<usize>,
+    /// Whether the game ended via termination (stalemate/no legal moves) rather than checkmate
+    pub was_terminated: bool,
 }
 
 // State for a single worker slot
@@ -159,6 +161,9 @@ struct SharedProgress {
     draws: AtomicUsize,
     total_games: usize,
     is_running: AtomicBool,
+    // Statistics
+    total_moves: AtomicUsize,
+    termination_count: AtomicUsize, // Count of abnormal terminations
 }
 
 /// Compute enhanced game metrics from thinking data and final board state
@@ -280,6 +285,8 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
         draws: AtomicUsize::new(0),
         total_games: config.num_games,
         is_running: AtomicBool::new(true),
+        total_moves: AtomicUsize::new(0),
+        termination_count: AtomicUsize::new(0),
     });
 
     // Start UI thread
@@ -326,10 +333,26 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
                 (0.0, 0.0, 0.0)
             };
 
+            // Calculate average moves
+            let total_moves = ui_state.total_moves.load(Ordering::Relaxed);
+            let termination_count = ui_state.termination_count.load(Ordering::Relaxed);
+            let avg_moves = if completed > 0 {
+                total_moves as f64 / completed as f64
+            } else {
+                0.0
+            };
+
             write!(
                 stdout,
                 "\r\x1B[KProgress: {}/{} ({:.1}%) - P1: {} ({:.1}%), P2: {} ({:.1}%), Draw: {} ({:.1}%)\r\n",
                 completed, total, percent, p1_w, p1_pct, p2_w, p2_pct, d, d_pct
+            )
+            .ok();
+
+            write!(
+                stdout,
+                "\r\x1B[KStats: Avg {:.1} moves, Terminations: {}\r\n",
+                avg_moves, termination_count
             )
             .ok();
 
@@ -484,6 +507,16 @@ fn execute_game_with_monitoring(
                     shared.draws.fetch_add(1, Ordering::Relaxed);
                 }
             }
+
+            // Update move count
+            shared
+                .total_moves
+                .fetch_add(res.move_count, Ordering::Relaxed);
+
+            // Update termination count if abnormal ending
+            if res.was_terminated {
+                shared.termination_count.fetch_add(1, Ordering::Relaxed);
+            }
         }
 
         let mut workers = shared.workers.lock().unwrap();
@@ -542,6 +575,7 @@ fn run_single_game(
         duration: elapsed,
         position_evaluations,
         critical_moments,
+        was_terminated: false, // This will be set by run_game_silent if abnormal
     })
 }
 
@@ -585,6 +619,60 @@ fn run_game_silent(
 
         if legal_moves.is_empty() {
             let in_check = crate::logic::is_in_check(&game.board, current_player);
+
+            // Diagnostic logging for premature termination investigation
+            let termination_log = format!(
+                "\r\n=== Game Termination at Move {} ===\r\n\
+                Player: {:?}\r\n\
+                In Check: {}\r\n\
+                Legal Moves: 0\r\n\
+                Pieces on board: {}\r\n",
+                move_count + 1,
+                current_player,
+                in_check,
+                game.board.pieces.len()
+            );
+
+            eprintln!("{}", termination_log);
+
+            // Log to file
+            if let Err(e) = std::fs::create_dir_all("selfplay_termination_logs") {
+                eprintln!("Failed to create log directory: {}", e);
+            }
+            let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+            let log_file = format!("selfplay_termination_logs/termination_{}.txt", timestamp);
+            if let Err(e) = std::fs::write(&log_file, &termination_log) {
+                eprintln!("Failed to write termination log: {}", e);
+            } else {
+                eprintln!("Termination log saved to: {}\r", log_file);
+            }
+
+            // Count pieces on board
+            let piece_count: usize = game.board.pieces.len();
+            eprintln!("Pieces on board: {}\r", piece_count);
+
+            // Show hand pieces
+            if let Some(hand) = game.board.hand.get(&current_player) {
+                let hand_pieces: Vec<String> = hand
+                    .iter()
+                    .filter(|(_, &count)| count > 0)
+                    .map(|(kind, count)| format!("{:?}x{}", kind, count))
+                    .collect();
+                if !hand_pieces.is_empty() {
+                    eprintln!("Hand pieces: {}\r", hand_pieces.join(", "));
+                }
+            }
+
+            // Show pseudo-legal moves count for comparison
+            let pseudo_legal = crate::logic::pseudo_legal_moves(&game.board, current_player);
+            eprintln!("Pseudo-legal moves: {}\r", pseudo_legal.len());
+            if pseudo_legal.len() > 0 && pseudo_legal.len() <= 5 {
+                eprintln!("Pseudo-legal moves (filtered as illegal):\r");
+                for mv in &pseudo_legal {
+                    eprintln!("  {:?}\r", mv);
+                }
+            }
+            eprintln!("==============================\r\n");
             if in_check {
                 return Ok((
                     Some(current_player.opponent()),
