@@ -12,17 +12,38 @@
 - [ARCHITECTURE.md](../ARCHITECTURE.md) - システムアーキテクチャ
 - [ML_USAGE.md](./ML_USAGE.md) - 機械学習の使用方法
 - [VERSIONING.md](./VERSIONING.md) - バージョン管理ガイド
+- [WINDOWS_GPU_SETUP.md](./WINDOWS_GPU_SETUP.md) - Windows GPU 設定
 
-### 最新の改善実装 (2026-01-07)
+### 最新の改善実装 (2026-01-10)
 
-#### 評価関数の改善
+#### Self-Play 品質改善
+
+- **SEE (Static Exchange Evaluation) 実装**
+
+  - 不利な交換を回避するための評価
+  - ゲーム長を大幅改善 (13 手 → 38 手平均)
+  - `src/player/ai/see.rs` 新規作成
+
+- **千日手ペナルティ修正**
+
+  - 探索崩壊を防止（-15000/-5000 → 0/-100）
+  - 探索深度回復（1-2 → 3-4）
+  - `src/player/ai/alpha_beta.rs` 修正
+
+- **診断・モニタリング機能**
+  - ゲーム終了診断ログ自動保存 (`selfplay_termination_logs/`)
+  - 進捗表示に統計追加（平均手数、Termination 回数）
+  - 実行モード選択（並列/順次）
+  - `src/selfplay/mod.rs` 拡張
+
+#### 評価関数の改善 (2026-01-07)
 
 - [📄 評価関数改善・完全版](./improvements/EVALUATION_IMPROVEMENTS.md)
   - Priority 1-5 の全実装詳細
   - 期待 Elo: +210-360
   - モビリティ、フェーズ検出、キング安全性、戦術パターン、駒組み
 
-#### ML データ品質改善
+#### ML データ品質改善 (2026-01-07)
 
 - [📄 ML データ品質改善・完全版](./improvements/ML_DATA_IMPROVEMENTS.md)
   - データ拡張（水平反転）
@@ -49,6 +70,7 @@
 - ✅ **強化されたキング安全性** - 逃げ場所+攻撃駒 (+30-50 Elo)
 - ✅ **戦術パターン認識** - パスポーン、ビショップペア、開いたファイル (+20-40 Elo)
 - ✅ **駒組み評価** - 序盤の開発促進 (+10-20 Elo)
+- ✅ **SEE (Static Exchange Evaluation)** - 不利な交換回避 (ゲーム長 3 倍改善)
 
 **総合効果**: +210-360 Elo
 
@@ -56,12 +78,15 @@
 
 **Self-Play** (src/selfplay/mod.rs):
 
-- ✅ 並列対戦生成
+- ✅ 並列/順次実行モード選択
+- ✅ リアルタイム統計表示（平均手数、Termination 回数）
+- ✅ 診断ログ自動保存 (`selfplay_termination_logs/`)
 - ✅ 強化されたゲーム結果記録
   - material_diff (最終駒差)
   - avg_move_time_ms (平均思考時間)
   - position_evaluations (評価値の軌跡)
   - critical_moments (決定的な局面)
+  - was_terminated (異常終了フラグ)
 
 **データ準備** (scripts/ml/prepare_dataset.py):
 
@@ -131,13 +156,14 @@
 src/
 ├── player/ai/
 │   ├── eval.rs           // 評価関数 (全改善実装)
-│   ├── alpha_beta.rs     // 探索アルゴリズム
+│   ├── alpha_beta.rs     // 探索アルゴリズム + 千日手対策
+│   ├── see.rs            // Static Exchange Evaluation (NEW)
 │   ├── pst.rs            // Piece-Square Tables
 │   └── config.rs         // AI設定
 ├── selfplay/
-│   └── mod.rs            // Self-Play実装 (強化ラベル)
+│   └── mod.rs            // Self-Play実装 (診断機能付き)
 └── ml/
-    ├── nn_evaluator.rs   // NN評価器
+    ├── nn_evaluator.rs   // NN評価器 (DirectML対応)
     └── features.rs       // 特徴抽出
 ```
 
@@ -222,6 +248,15 @@ cargo run --release -- selfplay \
 
 ## 📝 更新履歴
 
+### 2026-01-10
+
+- ✅ SEE (Static Exchange Evaluation) 実装
+- ✅ 千日手ペナルティ修正（探索深度改善）
+- ✅ Self-Play 診断機能追加
+- ✅ 進捗表示統計強化
+- ✅ 実行モード選択機能
+- ⚠️ 既知の問題: 詰み達成率 0%（要調査）
+
 ### 2026-01-07
 
 - ✅ 評価関数 Priority 1-5 完全実装
@@ -230,6 +265,31 @@ cargo run --release -- selfplay \
 
 ---
 
+## ⚠️ 既知の問題
+
+### Self-Play 詰み達成率: 0%
+
+**症状**:
+
+- 全ゲームが途中終了（24-63 手）
+- 詰みスコア（±10000）に到達しない
+- 診断ログが記録されない
+
+**調査中の仮説**:
+
+1. AI が手を選べなくなっている
+2. 千日手で終了している
+3. `was_terminated`フラグ未設定
+
+**次のステップ**:
+
+- 順次実行で 1 ゲームテスト
+- ターミナル出力の詳細確認
+- コード追跡とデバッグ
+
+---
+
 **作成日**: 2026-01-07  
-**バージョン**: 0.3.0  
-**ステータス**: 実装完了、テスト準備完了
+**最終更新**: 2026-01-10  
+**バージョン**: 0.6.0  
+**ステータス**: 実装継続中、Self-Play 問題調査中
