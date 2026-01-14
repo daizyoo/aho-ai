@@ -10,6 +10,9 @@ config_backups/
 analysis_graphs/
 models/
 
+# Web version
+web/
+
 # Temporary and backup files
 *.tmp
 *.bak
