@@ -3,7 +3,7 @@
 /// Evaluates the material outcome of a capture sequence at a given square.
 /// Returns the expected material gain/loss from the perspective of the moving player.
 ///
-/// Optimized version using direct attack pattern checking instead of expensive legal move generation.
+/// Improved version that properly checks if pieces can actually attack the target square.
 use crate::core::{Board, Move, PlayerId, Position};
 use crate::logic::apply_move;
 use crate::player::ai::eval::piece_val;
@@ -36,6 +36,7 @@ pub fn static_exchange_eval(board: &Board, mv: &Move, player: PlayerId) -> i32 {
     }
 
     // Simple 2-level SEE: we capture, opponent recaptures
+    // More sophisticated would simulate the full exchange sequence
     let net_gain = captured_piece - attacker;
 
     // Check if we also defend the square
@@ -43,6 +44,7 @@ pub fn static_exchange_eval(board: &Board, mv: &Move, player: PlayerId) -> i32 {
 
     if our_defenders > 1 {
         // We have multiple defenders, likely favorable
+        // Simplified: assume we can recapture
         return net_gain.max(captured_piece / 2); // Conservative estimate
     }
 
@@ -73,7 +75,7 @@ fn can_piece_attack(
     piece_kind: crate::core::PieceKind,
     owner: PlayerId,
 ) -> bool {
-    use crate::core::PieceKind;
+    use crate::core::PieceKind::*;
 
     if from == to {
         return false;
@@ -82,51 +84,44 @@ fn can_piece_attack(
     let dx = to.x as i32 - from.x as i32;
     let dy = to.y as i32 - from.y as i32;
 
-    // Direction from owner's perspective (Player1 moves down: +dy, Player2 moves up: -dy)
+    // Direction from owner's perspective (Player1 moves down, Player2 moves up)
     let forward = if owner == PlayerId::Player1 { 1 } else { -1 };
 
     match piece_kind {
         // Pawn: one square forward
-        PieceKind::S_Pawn => dx == 0 && dy == forward,
+        Pawn => dx == 0 && dy == forward,
 
         // Lance: any number of squares forward
-        PieceKind::S_Lance => dx == 0 && dy * forward > 0 && is_path_clear(board, from, to),
+        Lance => dx == 0 && dy * forward > 0 && is_path_clear(board, from, to),
 
-        // Knight: L-shape jump (1 left/right, 2 forward)
-        PieceKind::S_Knight => dx.abs() == 1 && dy == 2 * forward,
+        // Knight: L-shape jump (2 forward, 1 left/right)
+        Knight => dx.abs() == 1 && dy == 2 * forward,
 
         // Silver: 5 directions (forward, forward-diagonals, back-diagonals)
-        PieceKind::S_Silver => {
+        Silver => {
             (dx == 0 && dy == forward) || // Forward
             (dx.abs() == 1 && dy == forward) || // Forward diagonals
             (dx.abs() == 1 && dy == -forward) // Back diagonals
         }
 
         // Gold: 6 directions (all adjacent except back diagonals)
-        PieceKind::S_Gold => {
+        Gold => {
             (dx == 0 && dy.abs() == 1) || // Forward/backward
             (dx.abs() == 1 && dy == 0) || // Left/right
             (dx.abs() == 1 && dy == forward) // Forward diagonals only
         }
 
         // Bishop: any diagonal
-        PieceKind::S_Bishop | PieceKind::C_Bishop => {
-            dx.abs() == dy.abs() && dx != 0 && is_path_clear(board, from, to)
-        }
+        Bishop => dx.abs() == dy.abs() && dx != 0 && is_path_clear(board, from, to),
 
         // Rook: any horizontal or vertical
-        PieceKind::S_Rook | PieceKind::C_Rook => {
-            (dx == 0 || dy == 0) && is_path_clear(board, from, to)
-        }
+        Rook => (dx == 0 || dy == 0) && is_path_clear(board, from, to),
 
         // King: one square in any direction
-        PieceKind::S_King | PieceKind::C_King => dx.abs() <= 1 && dy.abs() <= 1,
+        King => dx.abs() <= 1 && dy.abs() <= 1,
 
-        // Promoted pieces (follow Gold pattern)
-        PieceKind::S_ProPawn
-        | PieceKind::S_ProLance
-        | PieceKind::S_ProKnight
-        | PieceKind::S_ProSilver => {
+        // Promoted pieces (follow Gold pattern + original movement)
+        PieceKind::ProPawn | PieceKind::ProLance | PieceKind::ProKnight | PieceKind::ProSilver => {
             // All promoted pieces move like Gold
             (dx == 0 && dy.abs() == 1)
                 || (dx.abs() == 1 && dy == 0)
@@ -134,7 +129,7 @@ fn can_piece_attack(
         }
 
         // Promoted Bishop (Horse): Bishop + King
-        PieceKind::S_ProBishop => {
+        ProBishop => {
             // Can move like Bishop
             (dx.abs() == dy.abs() && dx != 0 && is_path_clear(board, from, to)) ||
             // Or one square in any direction (King move)
@@ -142,23 +137,32 @@ fn can_piece_attack(
         }
 
         // Promoted Rook (Dragon): Rook + King
-        PieceKind::S_ProRook => {
+        ProRook => {
             // Can move like Rook
             ((dx == 0 || dy == 0) && is_path_clear(board, from, to)) ||
             // Or one square diagonally (King diagonal move)
             (dx.abs() == 1 && dy.abs() == 1)
         }
 
-        // Chess Queen: Rook + Bishop
-        PieceKind::C_Queen => {
-            ((dx == 0 || dy == 0) || (dx.abs() == dy.abs())) && is_path_clear(board, from, to)
+        // Chess pieces (for mixed boards)
+        ChessPawn => {
+            // Chess pawns attack diagonally forward
+            dx.abs() == 1 && dy == forward
         }
 
-        // Chess Pawn: attacks diagonally forward
-        PieceKind::C_Pawn => dx.abs() == 1 && dy == forward,
+        ChessKnight => {
+            // Standard L-shape: (2,1) or (1,2) in any direction
+            (dx.abs() == 2 && dy.abs() == 1) || (dx.abs() == 1 && dy.abs() == 2)
+        }
 
-        // Chess Knight: L-shape in any direction
-        PieceKind::C_Knight => (dx.abs() == 2 && dy.abs() == 1) || (dx.abs() == 1 && dy.abs() == 2),
+        ChessBishop => dx.abs() == dy.abs() && dx != 0 && is_path_clear(board, from, to),
+
+        ChessRook => (dx == 0 || dy == 0) && is_path_clear(board, from, to),
+
+        ChessQueen => {
+            // Queen = Rook + Bishop
+            ((dx == 0 || dy == 0) || (dx.abs() == dy.abs())) && is_path_clear(board, from, to)
+        }
     }
 }
 
@@ -193,15 +197,21 @@ fn is_path_clear(board: &Board, from: Position, to: Position) -> bool {
 }
 
 /// Check if a specific square is attacked by a player.
-#[allow(dead_code)]
+/// More efficient than count_attackers when you only need yes/no.
 pub fn is_square_attacked(board: &Board, target: Position, attacker: PlayerId) -> bool {
     count_attackers(board, target, attacker) > 0
 }
 
 /// Enhanced SEE with hanging piece detection.
-#[allow(dead_code)]
+/// Returns a penalty if moving a piece leaves it hanging (undefended and attackable).
 pub fn evaluate_move_safety(board: &Board, mv: &Move, player: PlayerId) -> i32 {
-    let to = match mv {
+    let mut safety_score = 0;
+
+    // 1. Evaluate the capture (if any)
+    safety_score += static_exchange_eval(board, mv, player);
+
+    // 2. Check if the moved piece will be hanging after the move
+    let to_pos = match mv {
         Move::Normal { to, .. } => *to,
         Move::Drop { to, .. } => *to,
     };
@@ -209,18 +219,25 @@ pub fn evaluate_move_safety(board: &Board, mv: &Move, player: PlayerId) -> i32 {
     // Simulate the move
     let next_board = apply_move(board, mv, player);
 
-    // Check if the moved piece is now under attack
-    let attackers = count_attackers(&next_board, to, player.opponent());
-    let defenders = count_attackers(&next_board, to, player);
+    // Check if the piece at the destination is now attacked
+    let is_attacked = is_square_attacked(&next_board, to_pos, player.opponent());
 
-    if attackers > defenders {
-        // Piece is hanging
-        let piece_value = next_board
-            .get_piece(to)
-            .map(|p| piece_val(p.kind))
-            .unwrap_or(0);
-        -piece_value // Penalty
-    } else {
-        0
+    if is_attacked {
+        // Check if it's defended
+        let is_defended = is_square_attacked(&next_board, to_pos, player);
+
+        if !is_defended {
+            // Piece is hanging! Apply penalty
+            let piece_val = match next_board.get_piece(to_pos) {
+                Some(p) if p.owner == player => piece_val(p.kind),
+                _ => 0,
+            };
+            safety_score -= piece_val; // Full penalty for hanging piece
+        } else {
+            // Piece is attacked but defended - small penalty for risk
+            safety_score -= 50;
+        }
     }
+
+    safety_score
 }

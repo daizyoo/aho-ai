@@ -1,53 +1,22 @@
 {
-  "ShogiOnly (Light vs Strong)": {
-    "total_games": 4,
-    "p1_wins": 0,
-    "p2_wins": 4,
-    "draws": 0,
-    "p1_win_rate": 0.0,
-    "p2_win_rate": 100.0,
-    "draw_rate": 0.0,
-    "avg_moves": 58.5,
-    "avg_time_s": 303.85,
-    "source_files": [
-      "selfplay_results_20260107_214954.json"
-    ],
-    "board_setup": "ShogiOnly",
-    "ai1_strength": "Light",
-    "ai2_strength": "Strong"
-  },
   "ShogiOnly (Strong vs Strong)": {
-    "total_games": 170,
-    "p1_wins": 85,
-    "p2_wins": 85,
-    "draws": 0,
-    "p1_win_rate": 50.0,
-    "p2_win_rate": 50.0,
-    "draw_rate": 0.0,
-    "avg_moves": 66.73529411764704,
-    "avg_time_s": 1062.0912941176473,
+    "total_games": 247,
+    "p1_wins": 131,
+    "p2_wins": 110,
+    "draws": 6,
+    "p1_win_rate": 53.036437246963565,
+    "p2_win_rate": 44.534412955465584,
+    "draw_rate": 2.42914979757085,
+    "avg_moves": 125.87044534412954,
+    "avg_time_s": 3547.0473886639675,
     "source_files": [
-      "selfplay_results_20260107_095652.json",
-      "selfplay_results_20260107_173106.json"
+      "selfplay_results_20260111_233302.json",
+      "selfplay_results_20260113_000424.json",
+      "selfplay_results_20260111_183928.json",
+      "selfplay_results_20260113_172416.json",
+      "selfplay_results_20260111_131118.json"
     ],
     "board_setup": "ShogiOnly",
-    "ai1_strength": "Strong",
-    "ai2_strength": "Strong"
-  },
-  "StandardMixed (Strong vs Strong)": {
-    "total_games": 50,
-    "p1_wins": 24,
-    "p2_wins": 26,
-    "draws": 0,
-    "p1_win_rate": 48.0,
-    "p2_win_rate": 52.0,
-    "draw_rate": 0.0,
-    "avg_moves": 93.75999999999998,
-    "avg_time_s": 1212.3852399999996,
-    "source_files": [
-      "selfplay_results_20260107_004732.json"
-    ],
-    "board_setup": "StandardMixed",
     "ai1_strength": "Strong",
     "ai2_strength": "Strong"
   }

@@ -153,6 +153,18 @@ impl AlphaBetaAI {
             }
         }
 
+        // Fallback: if no move found (time ran out before completing depth=1),
+        // select first legal move
+        if best_move.is_none() {
+            let legal_moves = legal_moves(board, self.player_id);
+            if !legal_moves.is_empty() {
+                best_move = Some(legal_moves[0].clone());
+                final_depth = 0;
+                final_score = 0;
+                eprintln!("⚠️ AI time limit exceeded, using fallback move");
+            }
+        }
+
         // Save thinking data
         let elapsed = start_time.elapsed();
         *self.last_thinking.borrow_mut() = Some((
@@ -259,13 +271,38 @@ impl AlphaBetaAI {
             // SEE Pruning: Skip obviously bad captures
             // Only prune in non-PV nodes (moves_searched > 0) and when not in check
             if !in_check && moves_searched > 0 && depth >= 2 {
-                let see_value =
-                    crate::player::ai::see::static_exchange_eval(board, mv, current_player);
-                // If we lose more than a pawn (>150) in the exchange, skip this move
-                // This is a conservative heuristic - adjust threshold as needed
-                if see_value < -150 {
-                    continue; // Prune this move
+                // Only call SEE for capture moves
+                if let Move::Normal { from, to, .. } = mv {
+                    if let Some(captured_piece) = board.get_piece(*to) {
+                        // Quick heuristic: skip SEE for obviously good captures
+                        if let Some(our_piece) = board.get_piece(*from) {
+                            use crate::player::ai::eval::piece_val;
+                            let our_value = piece_val(our_piece.kind);
+                            let their_value = piece_val(captured_piece.kind);
+
+                            // If we're capturing a more valuable piece with decent margin, likely good
+                            // Skip expensive SEE evaluation
+                            if their_value > our_value + 200 {
+                                // Obviously good capture (e.g., pawn takes bishop)
+                                // Skip SEE
+                            } else {
+                                // Questionable capture - evaluate with SEE
+                                let see_value = crate::player::ai::see::static_exchange_eval(
+                                    board,
+                                    mv,
+                                    current_player,
+                                );
+                                // If we lose more than a pawn (>150) in the exchange, skip this move
+                                if see_value < -150 {
+                                    continue; // Prune this move
+                                }
+                            }
+                        }
+                        // If we can't get our piece, skip SEE (shouldn't happen)
+                    }
+                    // If it's not a capture, no SEE needed
                 }
+                // If it's a drop, no SEE needed
             }
 
             let next_board = apply_move(board, mv, current_player);
@@ -406,8 +443,21 @@ impl AlphaBetaAI {
     }
 
     // --- Quiescence Search ---
-    // Searches only captures and promotions to reach a stable state.
-    fn qsearch(&self, board: &Board, mut alpha: i32, beta: i32, current_player: PlayerId) -> i32 {
+    // Searches only captures, promotions, and checks to reach a stable state.
+    fn qsearch(&self, board: &Board, alpha: i32, beta: i32, current_player: PlayerId) -> i32 {
+        self.qsearch_depth(board, alpha, beta, current_player, 0)
+    }
+
+    fn qsearch_depth(
+        &self,
+        board: &Board,
+        mut alpha: i32,
+        beta: i32,
+        current_player: PlayerId,
+        depth: usize,
+    ) -> i32 {
+        const MAX_QSEARCH_DEPTH: usize = 8;
+
         *self.nodes_evaluated.borrow_mut() += 1;
 
         // 1. Stand-pat (Static Evaluation)
@@ -426,16 +476,33 @@ impl AlphaBetaAI {
             alpha = stand_pat;
         }
 
-        // 2. Generate and filter tactical moves (Captures & Promotions only)
-        // Note: We use legal_moves then filter. Efficient enough for now.
+        // Depth limit to prevent runaway recursion
+        if depth >= MAX_QSEARCH_DEPTH {
+            return alpha;
+        }
+
+        // 2. Generate and filter tactical moves
         let moves = legal_moves(board, current_player);
         let mut tactical_moves: Vec<_> = moves
             .into_iter()
-            .filter(|mv| match mv {
-                Move::Normal { to, promote, .. } => {
-                    board.get_piece(*to).is_some() || promote.is_some()
+            .filter(|mv| {
+                match mv {
+                    Move::Normal { to, promote, .. } => {
+                        // Include captures and promotions
+                        board.get_piece(*to).is_some() || promote.is_some()
+                    }
+                    Move::Drop { .. } => {
+                        // Include drops that give check
+                        // This is important for Shogi tactics
+                        if depth < 4 {
+                            // Only check for drops in early QS levels
+                            let next_board = apply_move(board, mv, current_player);
+                            is_in_check(&next_board, current_player.opponent())
+                        } else {
+                            false
+                        }
+                    }
                 }
-                _ => false, // Drops are typically not considered in basic QS unless they give check (complex)
             })
             .collect();
 
@@ -443,11 +510,17 @@ impl AlphaBetaAI {
             return alpha;
         }
 
-        self.order_moves(board, &mut tactical_moves, current_player, MAX_PLY); // No killer in QS
+        self.order_moves(board, &mut tactical_moves, current_player, MAX_PLY);
 
         for mv in tactical_moves {
             let next_board = apply_move(board, &mv, current_player);
-            let score = -self.qsearch(&next_board, -beta, -alpha, current_player.opponent());
+            let score = -self.qsearch_depth(
+                &next_board,
+                -beta,
+                -alpha,
+                current_player.opponent(),
+                depth + 1,
+            );
 
             if score >= beta {
                 return beta;

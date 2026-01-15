@@ -96,6 +96,7 @@ pub struct SelfPlayStats {
     pub p1_wins: usize,
     pub p2_wins: usize,
     pub draws: usize,
+    pub resignations: usize,
     pub avg_moves: f64,
     pub avg_time_ms: f64,
     pub board_setup: String,
@@ -110,6 +111,7 @@ impl SelfPlayStats {
             p1_wins: 0,
             p2_wins: 0,
             draws: 0,
+            resignations: 0,
             avg_moves: 0.0,
             avg_time_ms: 0.0,
             board_setup,
@@ -145,6 +147,8 @@ pub struct GameExecutionResult {
     pub critical_moments: Vec<usize>,
     /// Whether the game ended via termination (stalemate/no legal moves) rather than checkmate
     pub was_terminated: bool,
+    /// Whether the game ended by resignation
+    pub resigned: bool,
 }
 
 // State for a single worker slot
@@ -285,94 +289,102 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
         draws: AtomicUsize::new(0),
         total_games: config.num_games,
         is_running: AtomicBool::new(true),
+        // Statistics
         total_moves: AtomicUsize::new(0),
         termination_count: AtomicUsize::new(0),
     });
 
     // Start UI thread
-    let ui_state = Arc::clone(&shared_state);
-    let ui_handle = thread::spawn(move || {
-        let mut stdout = std::io::stdout();
-        use std::io::Write;
+    let ui_handle = {
+        let shared = Arc::clone(&shared_state);
+        std::thread::spawn(move || {
+            let mut stdout = std::io::stdout();
+            use std::io::Write; // Import Write trait for flush
 
-        while ui_state.is_running.load(Ordering::Relaxed)
-            || ui_state.completed_games.load(Ordering::Relaxed) < ui_state.total_games
-        {
-            // Draw
-            let completed = ui_state.completed_games.load(Ordering::Relaxed);
-            let total = ui_state.total_games;
-            let percent = if total > 0 {
-                (completed as f64 / total as f64) * 100.0
-            } else {
-                0.0
-            };
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(200));
 
-            // Move cursor to top of reserved area
-            // Area:
-            // [Progress Header]
-            // [Slot 0]
-            // ...
-            // [Slot N-1]
-            // Cursor is currently at N+1 lines down (logically)
-
-            let lines_total = num_display_slots + 1;
-            write!(stdout, "\x1B[{}A", lines_total).ok();
-
-            // Draw Header
-            let p1_w = ui_state.p1_wins.load(Ordering::Relaxed);
-            let p2_w = ui_state.p2_wins.load(Ordering::Relaxed);
-            let d = ui_state.draws.load(Ordering::Relaxed);
-
-            let (p1_pct, p2_pct, d_pct) = if completed > 0 {
-                (
-                    (p1_w as f64 / completed as f64) * 100.0,
-                    (p2_w as f64 / completed as f64) * 100.0,
-                    (d as f64 / completed as f64) * 100.0,
-                )
-            } else {
-                (0.0, 0.0, 0.0)
-            };
-
-            // Calculate average moves
-            let total_moves = ui_state.total_moves.load(Ordering::Relaxed);
-            let termination_count = ui_state.termination_count.load(Ordering::Relaxed);
-            let avg_moves = if completed > 0 {
-                total_moves as f64 / completed as f64
-            } else {
-                0.0
-            };
-
-            write!(
-                stdout,
-                "\r\x1B[KProgress: {}/{} ({:.1}%) - P1: {} ({:.1}%), P2: {} ({:.1}%), Draw: {} ({:.1}%)\r\n",
-                completed, total, percent, p1_w, p1_pct, p2_w, p2_pct, d, d_pct
-            )
-            .ok();
-
-            write!(
-                stdout,
-                "\r\x1B[KStats: Avg {:.1} moves, Terminations: {}\r\n",
-                avg_moves, termination_count
-            )
-            .ok();
-
-            // Draw Slots
-            {
-                let workers = ui_state.workers.lock().unwrap();
-                for w in workers.iter() {
-                    write!(stdout, "\r\x1B[K{}\r\n", w.status).ok();
+                if !shared.is_running.load(Ordering::Relaxed)
+                    && shared.completed_games.load(Ordering::Relaxed) >= shared.total_games
+                {
+                    break;
                 }
+
+                // Lock stdout for the entire UI update to prevent interleaving
+                let mut stdout_locked = stdout.lock();
+
+                let completed = shared.completed_games.load(Ordering::Relaxed);
+                let total = shared.total_games;
+                let percent = if total > 0 {
+                    (completed as f64 / total as f64) * 100.0
+                } else {
+                    0.0
+                };
+
+                // Draw Header
+                let p1_w = shared.p1_wins.load(Ordering::Relaxed);
+                let p2_w = shared.p2_wins.load(Ordering::Relaxed);
+                let d = shared.draws.load(Ordering::Relaxed);
+
+                let (p1_pct, p2_pct, d_pct) = if completed > 0 {
+                    (
+                        (p1_w as f64 / completed as f64) * 100.0,
+                        (p2_w as f64 / completed as f64) * 100.0,
+                        (d as f64 / completed as f64) * 100.0,
+                    )
+                } else {
+                    (0.0, 0.0, 0.0)
+                };
+
+                // Calculate average moves
+                let total_moves = shared.total_moves.load(Ordering::Relaxed);
+                let termination_count = shared.termination_count.load(Ordering::Relaxed);
+                let avg_moves = if completed > 0 {
+                    total_moves as f64 / completed as f64
+                } else {
+                    0.0
+                };
+
+                // Move cursor to top of reserved area
+                let lines_total = 2 + num_display_slots; // 2 for header lines, plus slots
+                write!(stdout_locked, "\x1B[{}A", lines_total).ok();
+
+                write!(
+                    stdout_locked,
+                    "\r\x1B[KProgress: {}/{} ({:.1}%) - P1: {} ({:.1}%), P2: {} ({:.1}%), Draw: {} ({:.1}%)\r\n",
+                    completed, total, percent, p1_w, p1_pct, p2_w, p2_pct, d, d_pct
+                )
+                .ok();
+
+                write!(
+                    stdout_locked,
+                    "\r\x1B[KStats: Avg {:.1} moves, Terminations: {}\r\n",
+                    avg_moves, termination_count
+                )
+                .ok();
+
+                // Draw Slots
+                {
+                    let workers = shared.workers.lock().unwrap();
+                    for (i, worker) in workers.iter().enumerate().take(num_display_slots) {
+                        let status_text = if let Some(gid) = worker.game_id {
+                            format!("[Game {}] {}", gid, worker.status)
+                        } else {
+                            worker.status.clone()
+                        };
+                        write!(stdout_locked, "\r\x1B[K{}\r\n", status_text).ok();
+                    }
+                }
+
+                // Move cursor back down
+                write!(stdout_locked, "\x1B[{}B", lines_total).ok();
+                std::io::Write::flush(&mut stdout_locked).ok();
+
+                // Release lock here (explicit drop)
+                drop(stdout_locked);
             }
-
-            stdout.flush().ok();
-
-            if ui_state.is_running.load(Ordering::Relaxed) == false && completed >= total {
-                break;
-            }
-
-            thread::sleep(Duration::from_millis(100));
-        }
-    });
+        })
+    };
 
     let results: Vec<_> = if config.use_parallel {
         (1..=config.num_games)
@@ -414,9 +426,16 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
             avg_move_time_ms,
         };
 
-        stats.add_result(game_result);
+        // Track resignations separately
+        if exec_result.resigned {
+            stats.resignations += 1;
+        } else {
+            // Only count completed games in win/draw stats
+            stats.add_result(game_result);
+        }
 
-        if config.save_kifus {
+        // Only save kifu for completed games (not resigned)
+        if config.save_kifus && !exec_result.resigned {
             save_kifu(
                 &exec_result.game,
                 game_num,
@@ -426,6 +445,8 @@ pub fn run_selfplay(config: SelfPlayConfig) -> anyhow::Result<SelfPlayStats> {
                 exec_result.thinking_data,
                 &run_id,
             )?;
+        } else if exec_result.resigned {
+            eprintln!("Skipping kifu save for game {} (resigned)\r", game_num);
         }
     }
 
@@ -563,8 +584,27 @@ fn run_single_game(
 
     let elapsed = start_time.elapsed();
 
+    // Detect if game ended by resignation
+    // Resignation occurs when:
+    // 1. Game ended with a winner (not draw/stalemate)
+    // 2. NOT a checkmate scenario (which would have legal_moves == 0 and in_check)
+    // 3. Score indicates hopeless position
+    let resigned = if let Some(_) = winner {
+        // Check if last thinking info indicates resignation threshold
+        if let Some(last_thinking) = thinking_data.last() {
+            let config = crate::player::ai::config::AIConfig::get();
+            config.resignation.enabled
+                && last_thinking.score.abs() >= config.resignation.threshold_centipawns.abs()
+                && last_thinking.depth as u8 >= config.resignation.min_depth
+        } else {
+            false
+        }
+    } else {
+        false // No winner means draw, not resignation
+    };
+
     // Compute enhanced game metrics
-    let (material_diff, avg_move_time_ms, position_evaluations, critical_moments) =
+    let (_material_diff, _avg_move_time_ms, position_evaluations, critical_moments) =
         compute_game_metrics(&game, &thinking_data, elapsed);
 
     Ok(GameExecutionResult {
@@ -576,6 +616,7 @@ fn run_single_game(
         position_evaluations,
         critical_moments,
         was_terminated: false, // This will be set by run_game_silent if abnormal
+        resigned,
     })
 }
 
@@ -612,6 +653,15 @@ fn run_game_silent(
             .filter(|&&h| h == game.board.zobrist_hash)
             .count();
         if hash_count >= 4 {
+            // Sennichite (4-fold repetition) - draw
+            thinking_data.push(ThinkingInfo {
+                move_number: move_count + 1,
+                player: format!("{:?}", current_player),
+                depth: 0,
+                score: 0, // Draw score
+                nodes: 0,
+                time_ms: 0,
+            });
             return Ok((None, move_count, thinking_data.clone()));
         }
 
@@ -673,13 +723,41 @@ fn run_game_silent(
                 }
             }
             eprintln!("==============================\r\n");
+
             if in_check {
+                // This is checkmate! Record the mate score
+                let mate_score = -199900 - (move_count as i32); // Mate score from loser's perspective
+                let normalized_score = if current_player == crate::core::PlayerId::Player1 {
+                    mate_score // Player1 is in checkmate, negative score
+                } else {
+                    -mate_score // Player2 is in checkmate, positive score from P1 perspective
+                };
+
+                // Add final thinking info with mate score
+                thinking_data.push(ThinkingInfo {
+                    move_number: move_count + 1,
+                    player: format!("{:?}", current_player),
+                    depth: 0, // No search needed, position is terminal
+                    score: normalized_score,
+                    nodes: 0,
+                    time_ms: 0,
+                });
+
                 return Ok((
                     Some(current_player.opponent()),
                     move_count,
                     thinking_data.clone(),
                 ));
             } else {
+                // Stalemate (no legal moves, not in check) - this is abnormal, treat as draw
+                thinking_data.push(ThinkingInfo {
+                    move_number: move_count + 1,
+                    player: format!("{:?}", current_player),
+                    depth: 0,
+                    score: 0, // Draw score
+                    nodes: 0,
+                    time_ms: 0,
+                });
                 return Ok((None, move_count, thinking_data.clone()));
             }
         }
@@ -713,6 +791,29 @@ fn run_game_silent(
                     nodes,
                     time_ms,
                 });
+
+                // Check for resignation
+                let config = crate::player::ai::config::AIConfig::get();
+                if config.resignation.enabled
+                    && normalized_score < config.resignation.threshold_centipawns
+                    && depth as u8 >= config.resignation.min_depth
+                {
+                    // Current player resigns - opponent wins
+                    // Note: We mark the game as resigned and don't save the kifu
+                    eprintln!(
+                        "\rGame resigned at move {} by {:?} (score: {}, depth: {})\r",
+                        move_count + 1,
+                        current_player,
+                        normalized_score,
+                        depth
+                    );
+
+                    return Ok((
+                        Some(current_player.opponent()),
+                        move_count,
+                        thinking_data.clone(),
+                    ));
+                }
             }
 
             game.board = crate::logic::apply_move(&game.board, &chosen_move, current_player);
@@ -720,6 +821,24 @@ fn run_game_silent(
             game.current_player = current_player.opponent();
             move_count += 1;
         } else {
+            // AI failed to choose a move - this should not happen with legal moves available
+            // Treat as a loss for the current player
+            let failure_score = -100000; // Very bad for current player
+            let normalized_score = if current_player == crate::core::PlayerId::Player1 {
+                failure_score
+            } else {
+                -failure_score
+            };
+
+            thinking_data.push(ThinkingInfo {
+                move_number: move_count + 1,
+                player: format!("{:?}", current_player),
+                depth: 0,
+                score: normalized_score,
+                nodes: 0,
+                time_ms: 0,
+            });
+
             return Ok((
                 Some(current_player.opponent()),
                 move_count,

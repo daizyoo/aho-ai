@@ -10,7 +10,14 @@ config_backups/
 analysis_graphs/
 models/
 
-# Web version
+selfplay_termination_logs/
+selfplay_kifu/
+
+# Web version - only ignore dependencies
+# web/node_modules/
+# web/.next/
+# web/server/node_modules/
+# web/server/dist/
 web/
 
 # Temporary and backup files

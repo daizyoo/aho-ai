@@ -7,6 +7,8 @@ pub struct AIConfig {
     pub version: String,
     pub evaluation: EvaluationConfig,
     pub search: SearchConfig,
+    #[serde(default)]
+    pub resignation: ResignationConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,6 +30,13 @@ fn default_evaluator_type() -> String {
 pub struct SearchConfig {
     pub max_depth_light: u8,
     pub max_depth_strong: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResignationConfig {
+    pub enabled: bool,
+    pub threshold_centipawns: i32,
+    pub min_depth: u8,
 }
 
 // Global config instance - loaded once at startup
@@ -78,6 +87,17 @@ impl Default for AIConfig {
                 max_depth_light: 4,
                 max_depth_strong: 6,
             },
+            resignation: ResignationConfig::default(),
+        }
+    }
+}
+
+impl Default for ResignationConfig {
+    fn default() -> Self {
+        ResignationConfig {
+            enabled: true,
+            threshold_centipawns: -15000,
+            min_depth: 3,
         }
     }
 }
