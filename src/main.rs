@@ -76,6 +76,9 @@ async fn main() -> anyhow::Result<()> {
                 terminal::disable_raw_mode()?;
                 return res;
             }
+            "selfplay" => {
+                return run_selfplay_cli(&args[2..]).await;
+            }
             _ => {} // Fall back to menu if mode is invalid
         }
     }
@@ -600,6 +603,219 @@ async fn run_selfplay() -> anyhow::Result<()> {
                 break;
             }
         }
+    }
+
+    Ok(())
+}
+
+async fn run_selfplay_cli(args: &[String]) -> anyhow::Result<()> {
+    // Parse command line arguments
+    let mut num_games = 10;
+    let mut board_setup = crate::selfplay::BoardSetupType::ShogiOnly;
+    let mut ai1_strength = crate::player::ai::AIStrength::Strong;
+    let mut ai2_strength = crate::player::ai::AIStrength::Strong;
+    let mut use_parallel = true;
+    let mut num_threads: Option<usize> = None;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--num-games" => {
+                if i + 1 < args.len() {
+                    num_games = args[i + 1].parse().unwrap_or(10);
+                    i += 1;
+                }
+            }
+            "--board" => {
+                if i + 1 < args.len() {
+                    board_setup = match args[i + 1].as_str() {
+                        "StandardMixed" => crate::selfplay::BoardSetupType::StandardMixed,
+                        "ReversedMixed" => crate::selfplay::BoardSetupType::ReversedMixed,
+                        "ShogiOnly" => crate::selfplay::BoardSetupType::ShogiOnly,
+                        "ChessOnly" => crate::selfplay::BoardSetupType::ChessOnly,
+                        "Fair" => crate::selfplay::BoardSetupType::Fair,
+                        "ReversedFair" => crate::selfplay::BoardSetupType::ReversedFair,
+                        _ => {
+                            eprintln!("Unknown board type: {}, using ShogiOnly", args[i + 1]);
+                            crate::selfplay::BoardSetupType::ShogiOnly
+                        }
+                    };
+                    i += 1;
+                }
+            }
+            "--ai1-strength" => {
+                if i + 1 < args.len() {
+                    ai1_strength = match args[i + 1].as_str() {
+                        "Light" => crate::player::ai::AIStrength::Light,
+                        "Strong" => crate::player::ai::AIStrength::Strong,
+                        _ => {
+                            eprintln!("Unknown AI strength: {}, using Strong", args[i + 1]);
+                            crate::player::ai::AIStrength::Strong
+                        }
+                    };
+                    i += 1;
+                }
+            }
+            "--ai2-strength" => {
+                if i + 1 < args.len() {
+                    ai2_strength = match args[i + 1].as_str() {
+                        "Light" => crate::player::ai::AIStrength::Light,
+                        "Strong" => crate::player::ai::AIStrength::Strong,
+                        _ => {
+                            eprintln!("Unknown AI strength: {}, using Strong", args[i + 1]);
+                            crate::player::ai::AIStrength::Strong
+                        }
+                    };
+                    i += 1;
+                }
+            }
+            "--parallel" => {
+                use_parallel = true;
+                if i + 1 < args.len() {
+                    if let Ok(n) = args[i + 1].parse::<usize>() {
+                        num_threads = Some(n);
+                        i += 1;
+                    }
+                }
+            }
+            "--sequential" => {
+                use_parallel = false;
+            }
+            "--help" | "-h" => {
+                println!("Self-Play Mode Usage:");
+                println!("  cargo run --release -- selfplay [OPTIONS]");
+                println!();
+                println!("Options:");
+                println!("  --num-games <N>          Number of games to play (default: 10)");
+                println!("  --board <TYPE>           Board type: StandardMixed, ReversedMixed, ShogiOnly, ChessOnly, Fair, ReversedFair (default: ShogiOnly)");
+                println!("  --ai1-strength <STR>     Player 1 AI strength: Light, Strong (default: Strong)");
+                println!("  --ai2-strength <STR>     Player 2 AI strength: Light, Strong (default: Strong)");
+                println!("  --parallel [N]           Enable parallel execution with optional thread count");
+                println!("  --sequential             Enable sequential execution");
+                println!("  --help, -h               Show this help message");
+                println!();
+                println!("Examples:");
+                println!(
+                    "  cargo run --release -- selfplay --num-games 100 --board Fair --parallel 6"
+                );
+                println!("  cargo run --release -- selfplay --num-games 10 --board ShogiOnly --sequential");
+                return Ok(());
+            }
+            _ => {
+                eprintln!("Unknown argument: {}", args[i]);
+            }
+        }
+        i += 1;
+    }
+
+    // Set thread count if specified
+    if let Some(n) = num_threads {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(n)
+            .build_global()
+            .ok();
+    }
+
+    let mut model_path = None;
+    {
+        use crate::player::ai::config::AIConfig;
+        let config = AIConfig::get();
+        if config.evaluation.evaluator_type == "NeuralNetwork" {
+            // For CLI mode, try to auto-detect model or skip
+            // Since we can't use interactive UI here
+            println!("Note: NeuralNetwork evaluator detected in config.");
+            println!("To use a specific model, please set it in ai_config.json");
+        }
+    }
+
+    println!();
+    println!("=== Self-Play Configuration ===");
+    println!("Games: {}", num_games);
+    println!("Board: {:?}", board_setup);
+    println!("AI1 Strength: {:?}", ai1_strength);
+    println!("AI2 Strength: {:?}", ai2_strength);
+    println!(
+        "Mode: {}",
+        if use_parallel {
+            "Parallel"
+        } else {
+            "Sequential"
+        }
+    );
+    if let Some(n) = num_threads {
+        println!("Threads: {}", n);
+    }
+    println!("==============================");
+    println!();
+
+    // Run self-play
+    let config = crate::selfplay::SelfPlayConfig {
+        num_games,
+        board_setup,
+        ai1_strength,
+        ai2_strength,
+        use_parallel,
+        save_kifus: true,
+        update_interval_moves: 1,
+        model_path: model_path.clone(),
+    };
+
+    // Display evaluator
+    use crate::core::PlayerId;
+    use crate::player::ai::alpha_beta::AlphaBetaAI;
+    let temp_ai = AlphaBetaAI::new(
+        PlayerId::Player1,
+        "Display",
+        config.ai1_strength,
+        model_path,
+        true,
+    );
+    println!("Evaluator: {}", temp_ai.evaluator_name());
+    println!();
+
+    let stats = crate::selfplay::run_selfplay(config)?;
+
+    // Display results
+    println!();
+    println!("=== Self-Play Results ===");
+    println!("Evaluator: {}", temp_ai.evaluator_name());
+    println!("Total Games: {}", stats.total_games);
+    println!(
+        "Player 1 Wins: {} ({:.1}%)",
+        stats.p1_wins,
+        stats.p1_wins as f64 / stats.total_games as f64 * 100.0
+    );
+    println!(
+        "Player 2 Wins: {} ({:.1}%)",
+        stats.p2_wins,
+        stats.p2_wins as f64 / stats.total_games as f64 * 100.0
+    );
+    println!(
+        "Draws: {} ({:.1}%)",
+        stats.draws,
+        stats.draws as f64 / stats.total_games as f64 * 100.0
+    );
+    println!("Average Moves: {:.1}", stats.avg_moves);
+    println!("Average Time: {:.1}s per game", stats.avg_time_ms / 1000.0);
+
+    // Save results to JSON
+    let results_dir = "selfplay_results";
+    std::fs::create_dir_all(results_dir)?;
+
+    let results_file = format!(
+        "{}/selfplay_results_{}.json",
+        results_dir,
+        chrono::Local::now().format("%Y%m%d_%H%M%S")
+    );
+    let file = std::fs::File::create(&results_file)?;
+    serde_json::to_writer_pretty(file, &stats)?;
+
+    if let Ok(abs_path) = std::fs::canonicalize(&results_file) {
+        println!();
+        println!("Results saved to {}", abs_path.display());
+    } else {
+        println!();
+        println!("Results saved to {}", results_file);
     }
 
     Ok(())
