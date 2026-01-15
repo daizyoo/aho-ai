@@ -2,6 +2,7 @@
 Cargo.lock
 Makefile.toml
 /kifu
+.DS_Store
 
 # Self-play results (regeneratable)
 selfplay_results/
